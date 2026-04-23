@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Bell, BellRing, X } from 'lucide-react';
+import { Bell, BellOff, BellRing, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { toast } from 'sonner';
@@ -163,11 +163,11 @@ export function NotificationPrompt({ visible }: NotificationPromptProps) {
 
   return (
     <div
-      className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 z-[60] transition-all duration-300 ease-out ${
-        slideIn ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
+      className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 z-50 transition-all duration-300 ease-out ${
+        slideIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
       }`}
     >
-      <div className="rounded-xl border bg-card p-4 shadow-2xl ring-1 ring-emerald-500/20">
+      <div className="rounded-xl border bg-card p-4 shadow-2xl">
         {/* Header */}
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
