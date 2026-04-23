@@ -31,6 +31,12 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
+    // Get admin emails from env
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map(e => e.trim())
+      .filter(Boolean);
+
     return NextResponse.json({
       success: true,
       stats: {
@@ -43,6 +49,7 @@ export async function GET(request: NextRequest) {
           count: c._count.id,
         })),
         recentStudents,
+        adminEmails,
       },
     })
   } catch (error) {

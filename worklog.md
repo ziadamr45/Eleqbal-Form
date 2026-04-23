@@ -32,3 +32,26 @@ Stage Summary:
 - Professional responsive design with shadcn/ui
 - GitHub repository initialized and pushed
 - Ready for Vercel deployment (set DATABASE_URL env var)
+
+---
+Task ID: 2
+Agent: Main Orchestrator
+Task: Admin Dashboard Improvements - Sidebar menu, logout confirmation, language icon, overlay fix
+
+Work Log:
+- Added "التحكم" (Control) tab to admin sidebar with system overview and admin list
+- Admin Control tab shows: total students, users, classes stats + list of admin emails (read from env)
+- Admin management info card shows how to add/remove admins via Vercel env vars
+- Fixed hamburger menu brightness drop: changed overlay from bg-black/50 to bg-black/20
+- Added logout confirmation dialog (AlertDialog) for both student page (header) and admin page
+- Changed language toggle icon from `Languages` to `Globe` (الكرة الأرضيه) in header
+- Updated admin header title to be dynamic based on active tab
+- Updated stats API to return adminEmails from ADMIN_EMAILS env var
+- Updated admin sidebar: 3 tabs (إدارة بيانات الطلاب, الإشعارات, التحكم)
+
+Stage Summary:
+- Admin dashboard now has 3 sections in sidebar: Student Data, Notifications, Control
+- Logout requires confirmation before proceeding
+- Language toggle uses globe icon
+- Mobile sidebar overlay is lighter (no brightness dim issue)
+- All changes pass ESLint with zero errors

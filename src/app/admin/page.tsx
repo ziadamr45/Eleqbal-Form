@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, User, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send } from 'lucide-react';
+import { Loader2, Users, User, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 interface StudentRecord {
@@ -75,7 +76,14 @@ export default function AdminDashboard() {
   const [notifTargetStudent, setNotifTargetStudent] = useState('');
   const [sending, setSending] = useState(false);
   const [sentNotifs, setSentNotifs] = useState<{ id: string; title: string; message: string; sentToAll: boolean; targetName: string | null; recipientCount: number; createdAt: string }[]>([]);
-  const [activeTab, setActiveTab] = useState<'data' | 'notif'>('data');
+  const [activeTab, setActiveTab] = useState<'data' | 'notif' | 'control'>('data');
+
+  // Logout confirmation
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Control tab - admin emails
+  const [adminEmails, setAdminEmails] = useState<string[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
 
   // Mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -124,15 +132,33 @@ export default function AdminDashboard() {
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
   useEffect(() => {
-    if (authed) { fetchStats(); fetchStudents(); fetchSentNotifs(); }
-  }, [authed, fetchStats, fetchStudents, fetchSentNotifs]);
+    if (authed) { fetchStats(); fetchStudents(); fetchSentNotifs(); fetchAdminEmails(); }
+  }, [authed, fetchStats, fetchStudents, fetchSentNotifs, fetchAdminEmails]);
   useEffect(() => { setPage(1); }, [search, gradeFilter, sectionFilter, genderFilter, sort]);
 
   // ── Helpers ──
-  const handleLogout = async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/'); };
+  const handleLogout = async () => {
+    setShowLogoutConfirm(false);
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/');
+  };
+
   const parseCN = (cn: string) => { const [g, s] = (cn || '/').split('/'); return `${t(`grades.${g}`)} - ${t(`sections.${s}`)}`; };
   const cn = (g: string, s: string) => `${g}/${s}`;
   const refresh = () => { fetchStudents(); fetchStats(); };
+
+  // ── Fetch Admin Emails ──
+  const fetchAdminEmails = useCallback(async () => {
+    setLoadingAdmins(true);
+    try {
+      const res = await fetch('/api/admin/stats');
+      if (res.ok) {
+        const data = await res.json();
+        setAdminEmails(data.adminEmails || []);
+      }
+    } catch { /* ignore */ }
+    finally { setLoadingAdmins(false); }
+  }, []);
 
   // ── Fetch Sent Notifications ──
   const fetchSentNotifs = useCallback(async () => {
@@ -276,7 +302,7 @@ export default function AdminDashboard() {
   return (
     <div dir={dir} className="min-h-screen flex bg-muted/30">
       {/* Sidebar overlay */}
-      {sidebarOpen && <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 z-50 bg-black/20 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 ${isRTL ? 'right-0' : 'left-0'} z-40 w-64 bg-card border-${isRTL ? 'l' : 'r'} transform transition-transform lg:translate-x-0 lg:static lg:z-auto ${sidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full')}`}>
@@ -292,10 +318,13 @@ export default function AdminDashboard() {
 
           <nav className="flex-1 p-3 space-y-1">
             <button onClick={() => setActiveTab('data')} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'data' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
-              <Users className="size-4" /> {lang === 'ar' ? 'إدارة البيانات' : 'Data Management'}
+              <Users className="size-4" /> {lang === 'ar' ? 'إدارة بيانات الطلاب' : 'Student Data'}
             </button>
-            <button onClick={() => { setActiveTab('notif'); }} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'notif' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
+            <button onClick={() => setActiveTab('notif')} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'notif' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
               <Bell className="size-4" /> {lang === 'ar' ? 'الإشعارات' : 'Notifications'}
+            </button>
+            <button onClick={() => setActiveTab('control')} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'control' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
+              <Settings className="size-4" /> {lang === 'ar' ? 'التحكم' : 'Control'}
             </button>
           </nav>
 
@@ -303,7 +332,7 @@ export default function AdminDashboard() {
             <button onClick={() => router.push('/')} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
               <School className="size-4" /> {lang === 'ar' ? 'الموقع الرئيسي' : 'Main Site'}
             </button>
-            <button onClick={handleLogout} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors mt-1">
+            <button onClick={() => setShowLogoutConfirm(true)} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors mt-1">
               <LogOut className="size-4" /> {lang === 'ar' ? 'خروج' : 'Logout'}
             </button>
           </div>
@@ -315,7 +344,11 @@ export default function AdminDashboard() {
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-card border-b px-4 py-3 flex items-center gap-3">
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)}><Menu className="size-5" /></button>
-          <h1 className="font-semibold text-lg">{lang === 'ar' ? 'إدارة بيانات الطلاب' : 'Student Data Management'}</h1>
+          <h1 className="font-semibold text-lg">
+            {activeTab === 'data' && (lang === 'ar' ? 'إدارة بيانات الطلاب' : 'Student Data Management')}
+            {activeTab === 'notif' && (lang === 'ar' ? 'الإشعارات' : 'Notifications')}
+            {activeTab === 'control' && (lang === 'ar' ? 'التحكم' : 'Control')}
+          </h1>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
               {stats?.totalStudents || 0} {lang === 'ar' ? 'طالب' : 'students'}
@@ -324,6 +357,76 @@ export default function AdminDashboard() {
         </header>
 
         <main className="flex-1 p-4 md:p-6 space-y-4">
+          {/* Control Tab Content */}
+          {activeTab === 'control' && (
+            <div className="space-y-4">
+              {/* System Overview */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Database className="size-4 text-emerald-600" />
+                    {lang === 'ar' ? 'نظرة عامة على النظام' : 'System Overview'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {stats && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
+                        <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalStudents}</p>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">{lang === 'ar' ? 'طالب مسجل' : 'Students'}</p>
+                      </div>
+                      <div className="rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 p-3 text-center">
+                        <p className="text-2xl font-bold text-sky-700 dark:text-sky-300">{stats.totalUsers}</p>
+                        <p className="text-xs text-sky-600 dark:text-sky-400">{lang === 'ar' ? 'مستخدم' : 'Users'}</p>
+                      </div>
+                      <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 text-center">
+                        <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.studentsByClass.length}</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'ar' ? 'فصل دراسي' : 'Classes'}</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Admin List */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <UserCog className="size-4 text-emerald-600" />
+                    {lang === 'ar' ? 'المديرين' : 'Admins'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {loadingAdmins ? (
+                    <div className="flex items-center justify-center py-6"><Loader2 className="size-5 animate-spin text-emerald-600" /></div>
+                  ) : adminEmails.length === 0 ? (
+                    <div className="flex flex-col items-center py-6 text-muted-foreground">
+                      <KeyRound className="size-8 opacity-20 mb-2" />
+                      <p className="text-sm">{lang === 'ar' ? 'لا يوجد مديرين' : 'No admins'}</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y rounded-lg border">
+                      {adminEmails.map((email) => (
+                        <div key={email} className="flex items-center gap-2.5 px-3 py-2.5">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 shrink-0">
+                            <Shield className="size-3.5 text-emerald-600" />
+                          </div>
+                          <span className="text-sm font-mono truncate" dir="ltr">{email}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3">
+                    <p className="text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                      <TriangleAlert className="size-4 shrink-0 mt-0.5" />
+                      <span>{lang === 'ar' ? 'لإضافة أو إزالة مدير، قم بتعديل متغير البيئة ADMIN_EMAILS في لوحة تحكم Vercel (فصل البريد الإلكتروني بفاصلة)' : 'To add or remove an admin, edit the ADMIN_EMAILS environment variable in your Vercel dashboard (comma-separated emails)'}</span>
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Notification Tab Content */}
           {activeTab === 'notif' && (
             <div className="space-y-4">
@@ -830,6 +933,28 @@ export default function AdminDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Logout Confirmation ── */}
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <TriangleAlert className="size-5 text-amber-500" />
+              {lang === 'ar' ? 'تسجيل الخروج' : 'Logout'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {lang === 'ar' ? 'هل أنت متأكد من تسجيل الخروج؟' : 'Are you sure you want to logout?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>{lang === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout} className="bg-destructive text-white hover:bg-destructive/90">
+              <LogOut className="size-4" />
+              {lang === 'ar' ? 'خروج' : 'Logout'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
