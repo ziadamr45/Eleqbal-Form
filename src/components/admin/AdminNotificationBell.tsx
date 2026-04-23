@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Bell, X, CheckCheck, Loader2 } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,9 @@ export default function AdminNotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unread, setUnread] = useState(0);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = useState({ top: 0, right: 0 });
 
   const fetchNotifs = async () => {
     try {
@@ -33,11 +35,30 @@ export default function AdminNotificationBell() {
     } catch { /* ignore */ }
   };
 
+  // Calculate fixed position based on button's location
+  const updatePanelPosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPanelPos({
+      top: rect.bottom + 8,
+      right: window.innerWidth - rect.right,
+    });
+  }, []);
+
   useEffect(() => { fetchNotifs(); }, []);
 
   useEffect(() => {
+    if (open) {
+      updatePanelPosition();
+      window.addEventListener('resize', updatePanelPosition);
+    }
+    return () => window.removeEventListener('resize', updatePanelPosition);
+  }, [open, updatePanelPosition]);
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node) &&
+          buttonRef.current && !buttonRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -77,8 +98,9 @@ export default function AdminNotificationBell() {
   };
 
   return (
-    <div className="relative" ref={panelRef}>
+    <>
       <button
+        ref={buttonRef}
         onClick={() => { setOpen(!open); if (!open) fetchNotifs(); }}
         className="relative p-2 rounded-lg hover:bg-muted transition-colors"
         title={t('admin.adminNotifications')}
@@ -92,7 +114,11 @@ export default function AdminNotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute top-full mt-2 right-0 w-80 sm:w-96 bg-card border rounded-xl shadow-xl z-50 overflow-hidden">
+        <div
+          ref={panelRef}
+          className="fixed w-80 sm:w-96 bg-card border rounded-xl shadow-xl z-[100] overflow-hidden"
+          style={{ top: panelPos.top, right: panelPos.right }}
+        >
           <div className="flex items-center justify-between p-3 border-b bg-muted/30">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <Bell className="size-4 text-emerald-600" />
@@ -137,6 +163,6 @@ export default function AdminNotificationBell() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

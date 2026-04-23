@@ -182,7 +182,19 @@ export default function AdminDashboard() {
     router.push('/');
   };
 
-  const parseCN = (cn: string) => { const [g, s] = (cn || '/').split('/'); return `${t(`grades.${g}`)} - ${t(`sections.${s}`)}`; };
+  const parseCN = (cn: string) => {
+    if (!cn) return lang === 'ar' ? 'غير محدد' : 'N/A';
+    const parts = cn.split('/');
+    const g = parts[0] || '';
+    const s = parts[1] || '';
+    if (!g && !s) return lang === 'ar' ? 'غير محدد' : 'N/A';
+    const gradeLabel = g ? t(`grades.${g}`) : t('grades.1');
+    const sectionLabel = s ? t(`sections.${s}`) : t('sections.1');
+    // Check if translation returned the key (missing translation)
+    const gradeDisplay = gradeLabel.startsWith('grades.') ? g : gradeLabel;
+    const sectionDisplay = sectionLabel.startsWith('sections.') ? s : sectionLabel;
+    return `${gradeDisplay} - ${sectionDisplay}`;
+  };
   const cn = (g: string, s: string) => `${g}/${s}`;
   const refresh = () => { fetchStudents(); fetchStats(); };
 
