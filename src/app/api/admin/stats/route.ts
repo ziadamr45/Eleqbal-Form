@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       recentStudents,
     ] = await Promise.all([
       db.studentData.count(),
-      db.user.count(),
+      db.user.count({ where: { role: 'student' } }),
       db.studentData.count({ where: { gender: 'male' } }),
       db.studentData.count({ where: { gender: 'female' } }),
       db.studentData.groupBy({

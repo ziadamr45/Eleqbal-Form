@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, User, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter } from 'lucide-react';
+import { Loader2, Users, User, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +67,16 @@ export default function AdminDashboard() {
   const [editSection, setEditSection] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Notifications
+  const [showNotif, setShowNotif] = useState(false);
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifMessage, setNotifMessage] = useState('');
+  const [notifTarget, setNotifTarget] = useState<'all' | 'student'>('all');
+  const [notifTargetStudent, setNotifTargetStudent] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sentNotifs, setSentNotifs] = useState<{ id: string; title: string; message: string; sentToAll: boolean; targetName: string | null; recipientCount: number; createdAt: string }[]>([]);
+  const [activeTab, setActiveTab] = useState<'data' | 'notif'>('data');
+
   // Mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -114,8 +124,8 @@ export default function AdminDashboard() {
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
   useEffect(() => {
-    if (authed) { fetchStats(); fetchStudents(); }
-  }, [authed, fetchStats, fetchStudents]);
+    if (authed) { fetchStats(); fetchStudents(); fetchSentNotifs(); }
+  }, [authed, fetchStats, fetchStudents, fetchSentNotifs]);
   useEffect(() => { setPage(1); }, [search, gradeFilter, sectionFilter, genderFilter, sort]);
 
   // ── Helpers ──
@@ -123,6 +133,41 @@ export default function AdminDashboard() {
   const parseCN = (cn: string) => { const [g, s] = (cn || '/').split('/'); return `${t(`grades.${g}`)} - ${t(`sections.${s}`)}`; };
   const cn = (g: string, s: string) => `${g}/${s}`;
   const refresh = () => { fetchStudents(); fetchStats(); };
+
+  // ── Fetch Sent Notifications ──
+  const fetchSentNotifs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/notifications');
+      if (res.ok) setSentNotifs((await res.json()).notifications);
+    } catch { /* ignore */ }
+  }, []);
+
+  // ── Send Notification ──
+  const handleSendNotif = async () => {
+    if (!notifTitle.trim() || !notifMessage.trim()) {
+      toast.error(lang === 'ar' ? 'يرجى كتابة العنوان والرسالة' : 'Title and message required');
+      return;
+    }
+    if (notifTarget === 'student' && !notifTargetStudent) {
+      toast.error(lang === 'ar' ? 'يرجى اختيار الطالب' : 'Please select a student');
+      return;
+    }
+    setSending(true);
+    try {
+      const body: Record<string, unknown> = { title: notifTitle, message: notifMessage, sentToAll: notifTarget === 'all' };
+      if (notifTarget === 'student') body.targetUserId = notifTargetStudent;
+      const res = await fetch('/api/admin/notifications', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(lang === 'ar' ? `تم إرسال الإشعار إلى ${data.sentTo} مستخدم` : `Sent to ${data.sentTo} users`);
+        setShowNotif(false); setNotifTitle(''); setNotifMessage(''); setNotifTargetStudent('');
+        fetchSentNotifs();
+      } else { const d = await res.json().catch(() => ({})); toast.error(d.error || 'Error'); }
+    } catch { toast.error('Error'); }
+    finally { setSending(false); }
+  };
 
   // ── Add Student ──
   const handleAdd = async () => {
@@ -246,9 +291,12 @@ export default function AdminDashboard() {
           </div>
 
           <nav className="flex-1 p-3 space-y-1">
-            <a href="#" onClick={(e) => { e.preventDefault(); }} className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            <button onClick={() => setActiveTab('data')} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'data' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
               <Users className="size-4" /> {lang === 'ar' ? 'إدارة البيانات' : 'Data Management'}
-            </a>
+            </button>
+            <button onClick={() => { setActiveTab('notif'); }} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'notif' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
+              <Bell className="size-4" /> {lang === 'ar' ? 'الإشعارات' : 'Notifications'}
+            </button>
           </nav>
 
           <div className="p-3 border-t">
@@ -276,7 +324,60 @@ export default function AdminDashboard() {
         </header>
 
         <main className="flex-1 p-4 md:p-6 space-y-4">
-          {/* Quick Stats */}
+          {/* Notification Tab Content */}
+          {activeTab === 'notif' && (
+            <div className="space-y-4">
+              {/* Send Notification */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Megaphone className="size-4 text-emerald-600" />
+                      {lang === 'ar' ? 'إرسال إشعار' : 'Send Notification'}
+                    </CardTitle>
+                    <Button size="sm" onClick={() => setShowNotif(true)} className="gap-1.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                      <Send className="size-3.5" /> {lang === 'ar' ? 'إشعار جديد' : 'New'}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-[400px] overflow-y-auto">
+                    {sentNotifs.length === 0 ? (
+                      <div className="flex flex-col items-center py-8 text-muted-foreground">
+                        <Bell className="size-8 opacity-20 mb-2" />
+                        <p className="text-sm">{lang === 'ar' ? 'لم يتم إرسال إشعارات بعد' : 'No notifications sent yet'}</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y">
+                        {sentNotifs.map(n => (
+                          <div key={n.id} className="py-3 first:pt-0 last:pb-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm">{n.title}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
+                              </div>
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${n.sentToAll ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                {n.sentToAll ? (lang === 'ar' ? 'الجميع' : 'All') : n.targetName}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {new Date(n.createdAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {' · '}{n.recipientCount} {lang === 'ar' ? 'مستخدم' : 'users'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Show data tab content only on data tab */}
+          {activeTab === 'data' && (
+            <>
+              {/* Quick Stats */}
           {stats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
@@ -532,8 +633,61 @@ export default function AdminDashboard() {
               </>
             )}
           </Card>
+            </>
+          )}
         </main>
       </div>
+
+      {/* ── Send Notification Dialog ── */}
+      <Dialog open={showNotif} onOpenChange={(o) => !o && setShowNotif(false)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{lang === 'ar' ? 'إرسال إشعار جديد' : 'Send New Notification'}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">{lang === 'ar' ? 'عنوان الإشعار' : 'Title'} *</Label>
+              <Input value={notifTitle} onChange={(e) => setNotifTitle(e.target.value)} placeholder={lang === 'ar' ? 'مثال: موعد اختبارات نهاية العام' : 'e.g. Final exam schedule'} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">{lang === 'ar' ? 'نص الإشعار' : 'Message'} *</Label>
+              <textarea value={notifMessage} onChange={(e) => setNotifMessage(e.target.value)} rows={4} placeholder={lang === 'ar' ? 'اكتب نص الإشعار هنا...' : 'Write notification message...'} className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px] resize-none" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">{lang === 'ar' ? 'إرسال إلى' : 'Send to'} *</Label>
+              <div className="flex gap-2">
+                <button onClick={() => setNotifTarget('all')} className={`flex-1 rounded-lg border-2 p-3 text-center text-sm transition-colors ${notifTarget === 'all' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20' : 'border-muted hover:bg-muted'}`}>
+                  <p className="font-medium">{lang === 'ar' ? 'جميع الطلاب' : 'All Students'}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{stats?.totalUsers || 0} {lang === 'ar' ? 'مستخدم' : 'users'}</p>
+                </button>
+                <button onClick={() => setNotifTarget('student')} className={`flex-1 rounded-lg border-2 p-3 text-center text-sm transition-colors ${notifTarget === 'student' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20' : 'border-muted hover:bg-muted'}`}>
+                  <p className="font-medium">{lang === 'ar' ? 'طالب محدد' : 'Specific Student'}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{lang === 'ar' ? 'اختر من القائمة' : 'Select from list'}</p>
+                </button>
+              </div>
+            </div>
+            {notifTarget === 'student' && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">{lang === 'ar' ? 'اختر الطالب' : 'Select Student'}</Label>
+                <Select value={notifTargetStudent || '__none__'} onValueChange={setNotifTargetStudent}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder={lang === 'ar' ? 'اختر طالب...' : 'Select student...'} /></SelectTrigger>
+                  <SelectContent>
+                    {students.map(s => (
+                      <SelectItem key={s.id} value={s.userEmail}>
+                        {s.fullName} ({parseCN(s.className)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowNotif(false)}>{t('form.cancel')}</Button>
+            <Button onClick={handleSendNotif} disabled={sending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {sending ? <><Loader2 className="size-4 animate-spin" /> {lang === 'ar' ? 'جاري الإرسال...' : 'Sending...'}</> : <><Send className="size-4" /> {lang === 'ar' ? 'إرسال' : 'Send'}</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── View Student Dialog ── */}
       <Dialog open={!!viewStudent} onOpenChange={(o) => !o && setViewStudent(null)}>

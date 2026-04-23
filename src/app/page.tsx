@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Loader2, GraduationCap, User, Pencil, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Loader2, GraduationCap, User, Pencil, Trash2, Plus, AlertTriangle, Bell, X, Check, Megaphone } from 'lucide-react';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { LoginForm } from '@/components/login-form';
@@ -12,24 +12,18 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 interface StudentData {
-  id: string;
-  userId: string;
-  fullName: string;
-  className: string;
-  parentPhone: string;
-  parentEmail: string;
-  gender: string;
-  whatsapp: string | null;
-  createdAt: string;
-  updatedAt: string;
+  id: string; userId: string; fullName: string; className: string;
+  parentPhone: string; parentEmail: string; gender: string;
+  whatsapp: string | null; createdAt: string; updatedAt: string;
 }
 
 interface UserData {
-  id: string;
-  email: string;
-  name: string | null;
-  role: string;
-  student: StudentData | null;
+  id: string; email: string; name: string | null; role: string; student: StudentData | null;
+}
+
+interface NotificationItem {
+  id: string; title: string; message: string; isRead: boolean;
+  sentToAll: boolean; createdAt: string; adminName: string | null;
 }
 
 export default function HomePage() {
@@ -40,6 +34,12 @@ export default function HomePage() {
   const { lang, dir } = useLanguage();
   const t = getT(lang);
 
+  // Notifications
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
   const checkAuth = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/me');
@@ -48,64 +48,82 @@ export default function HomePage() {
         setUser(data.user);
         setStudentData(data.user.student || null);
       }
-    } catch {
-      // Not authenticated
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* Not authenticated */ }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
-  const handleLogin = useCallback(() => {
-    checkAuth();
-  }, [checkAuth]);
-
-  const handleLogout = useCallback(async () => {
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch {
-      // Ignore
-    }
-    setUser(null);
-    setStudentData(null);
-    setEditing(false);
-  }, []);
-
-  const handleDataChange = useCallback(() => {
-    setEditing(false);
-    checkAuth();
-  }, [checkAuth]);
-
-  const handleDelete = useCallback(async () => {
-    if (!window.confirm(t('form.deleteConfirm'))) return;
-
-    try {
-      const res = await fetch('/api/student', { method: 'DELETE' });
+      const res = await fetch('/api/notifications');
       if (res.ok) {
-        setStudentData(null);
-        setEditing(false);
-        toast.success(t('form.deleteSuccess'));
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || t('form.submitError'));
+        const data = await res.json();
+        setNotifications(data.notifications);
+        setUnreadCount(data.unreadCount);
       }
-    } catch {
-      toast.error(t('form.submitError'));
-    }
-  }, [t]);
+    } catch { /* ignore */ }
+  }, []);
 
-  // Parse className "3/2" into grade and section display
-  const parseClassName = (className: string): string => {
-    const parts = className.split('/');
-    const gradeKey = parts[0] || '1';
-    const sectionKey = parts[1] || '1';
-    return `${t(`grades.${gradeKey}`)} - ${t(`sections.${sectionKey}`)}`;
+  // Mark as read
+  const markRead = async (notifId: string) => {
+    try {
+      await fetch('/api/notifications/mark-read', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: notifId }),
+      });
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch { /* ignore */ }
   };
 
-  // ─── Loading State ───
+  // Mark all as read
+  const markAllRead = async () => {
+    try {
+      await Promise.all(notifications.filter(n => !n.isRead).map(n => markRead(n.id)));
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => { checkAuth(); }, [checkAuth]);
+
+  useEffect(() => {
+    if (user) fetchNotifications();
+    const interval = setInterval(() => {
+      if (user) fetchNotifications();
+    }, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [user, fetchNotifications]);
+
+  // Close notification panel on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleLogin = useCallback(() => { checkAuth(); }, [checkAuth]);
+  const handleLogout = useCallback(async () => {
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* Ignore */ }
+    setUser(null); setStudentData(null); setEditing(false);
+  }, []);
+  const handleDataChange = useCallback(() => { setEditing(false); checkAuth(); }, [checkAuth]);
+  const handleDelete = useCallback(async () => {
+    if (!window.confirm(t('form.deleteConfirm'))) return;
+    try {
+      const res = await fetch('/api/student', { method: 'DELETE' });
+      if (res.ok) { setStudentData(null); setEditing(false); toast.success(t('form.deleteSuccess')); }
+      else { const data = await res.json().catch(() => ({})); toast.error(data.error || t('form.submitError')); }
+    } catch { toast.error(t('form.submitError')); }
+  }, [t]);
+
+  const parseClassName = (className: string): string => {
+    const parts = className.split('/');
+    return `${t(`grades.${parts[0] || '1'}`)} - ${t(`sections.${parts[1] || '1'}`)}`;
+  };
+
+  // ─── Loading ───
   if (loading) {
     return (
       <div dir={dir} className="min-h-screen flex flex-col bg-background">
@@ -121,7 +139,7 @@ export default function HomePage() {
     );
   }
 
-  // ─── Not Authenticated → Login ───
+  // ─── Not Authenticated ───
   if (!user) {
     return (
       <div dir={dir} className="min-h-screen flex flex-col bg-background">
@@ -134,10 +152,76 @@ export default function HomePage() {
     );
   }
 
-  // ─── Authenticated → Dashboard ───
+  // ─── Authenticated ───
   return (
     <div dir={dir} className="min-h-screen flex flex-col bg-background">
       <Header isLoggedIn={true} isAdmin={user.role === 'admin'} onLogout={handleLogout} />
+
+      {/* Notification Bell (floating for students) */}
+      {user.role === 'student' && (
+        <div ref={notifRef} className="fixed top-16 left-4 z-50 sm:top-16 sm:left-auto sm:right-4">
+          {/* Bell Button */}
+          <button onClick={() => setNotifOpen(!notifOpen)}
+            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-card border shadow-lg hover:bg-muted transition-colors">
+            <Bell className="size-5 text-foreground" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Notification Panel */}
+          {notifOpen && (
+            <div className={`absolute ${isRTL(dir) ? 'left-0' : 'right-0'} top-12 mt-1 w-80 sm:w-96 max-h-[70vh] rounded-xl bg-card border shadow-xl overflow-hidden z-50`}>
+              <div className="flex items-center justify-between p-3 border-b bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Bell className="size-4 text-emerald-600" />
+                  <span className="font-semibold text-sm">{lang === 'ar' ? 'الإشعارات' : 'Notifications'}</span>
+                  {unreadCount > 0 && (
+                    <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {unreadCount > 0 && (
+                    <button onClick={markAllRead} className="text-xs text-emerald-600 hover:underline">
+                      {lang === 'ar' ? 'قراءة الكل' : 'Read all'}
+                    </button>
+                  )}
+                  <button onClick={() => setNotifOpen(false)} className="p-1 rounded-md hover:bg-muted">
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-y-auto max-h-[60vh]">
+                {notifications.length === 0 ? (
+                  <div className="flex flex-col items-center py-10 text-muted-foreground">
+                    <Bell className="size-8 opacity-20 mb-2" />
+                    <p className="text-sm">{lang === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}</p>
+                  </div>
+                ) : (
+                  notifications.map(n => (
+                    <button key={n.id} onClick={() => { if (!n.isRead) markRead(n.id); }}
+                      className={`w-full text-start p-3 border-b last:border-0 transition-colors hover:bg-muted/50 ${!n.isRead ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : ''}`}>
+                      <div className="flex items-start gap-2">
+                        {!n.isRead && <div className="mt-1.5 h-2 w-2 rounded-full bg-emerald-500 shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${!n.isRead ? 'font-semibold' : 'font-medium'}`}>{n.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {new Date(n.createdAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <main className="flex-1 py-8 px-4">
         <div className="flex flex-col items-center gap-6">
           {/* Welcome Banner */}
@@ -146,23 +230,33 @@ export default function HomePage() {
               <GraduationCap className="size-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <div>
                 <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-                  {lang === 'ar'
-                    ? `أهلاً${user.name ? ` ${user.name}` : ''}!`
-                    : `Welcome${user.name ? ` ${user.name}` : ''}!`}
+                  {lang === 'ar' ? `أهلاً${user.name ? ` ${user.name}` : ''}!` : `Welcome${user.name ? ` ${user.name}` : ''}!`}
                 </p>
-                <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                  {user.email}
-                </p>
+                <p className="text-sm text-emerald-700 dark:text-emerald-300">{user.email}</p>
               </div>
             </div>
           </div>
 
-          {/* ── Student Data Exists + Not Editing → Show Data Card ── */}
+          {/* Unread notifications banner */}
+          {unreadCount > 0 && (
+            <div className="w-full max-w-2xl mx-auto px-4">
+              <button onClick={() => setNotifOpen(true)}
+                className="flex items-center gap-3 w-full rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-start hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors">
+                <Megaphone className="size-5 text-amber-600 shrink-0" />
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  {lang === 'ar'
+                    ? `لديك ${unreadCount} إشعار${unreadCount > 2 ? 'ات جديدة' : unreadCount > 1 ? ' إشعار جديد' : ' جديد'}`
+                    : `You have ${unreadCount} new notification${unreadCount > 1 ? 's' : ''}`}
+                </p>
+              </button>
+            </div>
+          )}
+
+          {/* Student Data Card */}
           {studentData && !editing && (
             <div className="w-full max-w-2xl mx-auto px-4">
               <Card className="shadow-lg">
                 <CardContent className="p-6">
-                  {/* Card Header */}
                   <div className="flex items-center gap-3 mb-6 pb-4 border-b">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
                       <User className="size-6 text-emerald-600 dark:text-emerald-400" />
@@ -172,84 +266,27 @@ export default function HomePage() {
                       <p className="text-sm text-muted-foreground">{parseClassName(studentData.className)}</p>
                     </div>
                   </div>
-
-                  {/* Data Rows */}
                   <div className="space-y-4">
-                    {/* Full Name */}
-                    <div className="flex items-center justify-between py-2 border-b border-dashed">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {t('form.fullName')}
-                      </span>
-                      <span className="text-sm font-semibold">{studentData.fullName}</span>
-                    </div>
-
-                    {/* Grade / Section */}
-                    <div className="flex items-center justify-between py-2 border-b border-dashed">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {t('form.grade')} / {t('form.section')}
-                      </span>
-                      <span className="text-sm font-semibold">{parseClassName(studentData.className)}</span>
-                    </div>
-
-                    {/* Gender */}
-                    <div className="flex items-center justify-between py-2 border-b border-dashed">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {t('form.gender')}
-                      </span>
-                      <span className="text-sm font-semibold">
-                        {studentData.gender === 'male' ? t('form.male') : t('form.female')}
-                      </span>
-                    </div>
-
-                    {/* Parent Phone */}
-                    <div className="flex items-center justify-between py-2 border-b border-dashed">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {t('form.parentPhone')}
-                      </span>
-                      <span className="text-sm font-semibold" dir="ltr">
-                        {studentData.parentPhone}
-                      </span>
-                    </div>
-
-                    {/* Parent Email */}
-                    <div className="flex items-center justify-between py-2 border-b border-dashed">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {t('form.parentEmail')}
-                      </span>
-                      <span className="text-sm font-semibold" dir="ltr">
-                        {studentData.parentEmail}
-                      </span>
-                    </div>
-
-                    {/* WhatsApp */}
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {t('form.whatsapp')}{' '}
-                        <span className="text-xs text-muted-foreground/70">{t('form.optional')}</span>
-                      </span>
-                      <span className="text-sm font-semibold" dir="ltr">
-                        {studentData.whatsapp || '—'}
-                      </span>
-                    </div>
+                    {[
+                      [t('form.fullName'), studentData.fullName],
+                      [`${t('form.grade')} / ${t('form.section')}`, parseClassName(studentData.className)],
+                      [t('form.gender'), studentData.gender === 'male' ? t('form.male') : t('form.female')],
+                      [t('form.parentPhone'), studentData.parentPhone],
+                      [t('form.parentEmail'), studentData.parentEmail],
+                      [`${t('form.whatsapp')} ${t('form.optional')}`, studentData.whatsapp || '—'],
+                    ].map(([label, value]) => (
+                      <div key={label as string} className="flex items-center justify-between py-2 border-b border-dashed last:border-0">
+                        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+                        <span className="text-sm font-semibold" dir={['010', '011', '012', '015'].some(p => (value as string).startsWith(p)) ? 'ltr' : dir}>{value}</span>
+                      </div>
+                    ))}
                   </div>
-
-                  {/* Action Buttons */}
                   <div className="flex flex-col gap-3 mt-6 pt-4 border-t sm:flex-row sm:justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => setEditing(true)}
-                      className="gap-2 border-emerald-600 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-400 dark:text-emerald-400 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300"
-                    >
-                      <Pencil className="size-4" />
-                      {t('form.edit')}
+                    <Button variant="outline" onClick={() => setEditing(true)} className="gap-2 border-emerald-600 text-emerald-600 hover:bg-emerald-50">
+                      <Pencil className="size-4" /> {t('form.edit')}
                     </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={handleDelete}
-                      className="gap-2"
-                    >
-                      <Trash2 className="size-4" />
-                      {t('form.delete')}
+                    <Button variant="destructive" onClick={handleDelete} className="gap-2">
+                      <Trash2 className="size-4" /> {t('form.delete')}
                     </Button>
                   </div>
                 </CardContent>
@@ -257,16 +294,10 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── Student Data Exists + Editing → Show Form ── */}
           {studentData && editing && (
-            <StudentForm
-              userId={user.id}
-              existingData={studentData}
-              onDataChange={handleDataChange}
-            />
+            <StudentForm userId={user.id} existingData={studentData} onDataChange={handleDataChange} />
           )}
 
-          {/* ── No Student Data + Not Editing → Show Empty State ── */}
           {!studentData && !editing && (
             <div className="w-full max-w-2xl mx-auto px-4">
               <Card className="shadow-lg">
@@ -277,16 +308,10 @@ export default function HomePage() {
                     </div>
                     <div className="space-y-1">
                       <h2 className="text-lg font-semibold">{t('form.noData')}</h2>
-                      <p className="text-sm text-muted-foreground max-w-sm">
-                        {t('form.noDataDesc')}
-                      </p>
+                      <p className="text-sm text-muted-foreground max-w-sm">{t('form.noDataDesc')}</p>
                     </div>
-                    <Button
-                      onClick={() => setEditing(true)}
-                      className="mt-2 gap-2 bg-emerald-600 text-white hover:bg-emerald-700 h-11 px-8"
-                    >
-                      <Plus className="size-4" />
-                      {t('form.addData')}
+                    <Button onClick={() => setEditing(true)} className="mt-2 gap-2 bg-emerald-600 text-white hover:bg-emerald-700 h-11 px-8">
+                      <Plus className="size-4" /> {t('form.addData')}
                     </Button>
                   </div>
                 </CardContent>
@@ -294,13 +319,8 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── No Student Data + Editing → Show Form ── */}
           {!studentData && editing && (
-            <StudentForm
-              userId={user.id}
-              existingData={null}
-              onDataChange={handleDataChange}
-            />
+            <StudentForm userId={user.id} existingData={null} onDataChange={handleDataChange} />
           )}
         </div>
       </main>
@@ -308,3 +328,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+function isRTL(dir: string) { return dir === 'rtl'; }
