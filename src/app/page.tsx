@@ -220,13 +220,14 @@ export default function HomePage() {
 
       {/* Notification Bell (floating for students) */}
       {user.role === 'student' && (
-        <div ref={notifRef} className="fixed top-16 left-4 z-50 sm:top-16 sm:left-auto sm:right-4">
+        <div ref={notifRef} className="fixed top-16 right-3 z-50 sm:right-4">
           {/* Bell Button */}
           <button onClick={() => setNotifOpen(!notifOpen)}
-            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-card border shadow-lg hover:bg-muted transition-colors">
-            <Bell className={`size-5 ${pushEnabled ? 'text-emerald-600' : 'text-foreground'}`} />
+            className="relative flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-all duration-200 active:scale-95 hover:shadow-xl"
+            style={{ background: 'rgba(5,150,105,0.9)', backdropFilter: 'blur(8px)' }}>
+            <Bell className="size-5 text-white" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+              <span className="absolute -top-0.5 -right-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-background">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
