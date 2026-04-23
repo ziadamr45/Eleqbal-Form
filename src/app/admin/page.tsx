@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound, Clock, Zap, FileText } from 'lucide-react';
+import { Loader2, Users, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound, Clock, Zap, FileText, Braces } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ import AdminNotificationBell from '@/components/admin/AdminNotificationBell';
 import SkeletonTable from '@/components/admin/SkeletonTable';
 import { generateStudentPDF, generateBulkStudentPDF } from '@/lib/pdf';
 import type { StudentRecord } from '@/lib/pdf';
+import { exportToExcel, exportToJson, exportToPdf, exportSingleStudentPdf } from '@/lib/export';
 
 interface Stats { totalStudents: number; totalUsers: number; maleCount: number; femaleCount: number; studentsByClass: { className: string; count: number }[] }
 
@@ -189,13 +190,9 @@ export default function AdminDashboard() {
   const downloadSinglePdf = async (student: StudentRecord) => {
     try {
       toast.loading(lang === 'ar' ? 'جاري إنشاء PDF...' : 'Generating PDF...', { id: 'pdf' });
-      const blob = await generateStudentPDF(student, lang);
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${student.fullName.replace(/\s+/g, '_')}.pdf`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      toast.success(t('admin.downloadPdf'), { id: 'pdf' });
+      const blob = await exportSingleStudentPdf(student, lang, getGradeLabels(), getSectionLabels());
+      downloadFile(blob, `${student.fullName.replace(/\s+/g, '_')}.pdf`);
+      toast.success(lang === 'ar' ? 'تم تحميل PDF بنجاح' : 'PDF downloaded', { id: 'pdf' });
     } catch {
       toast.error(lang === 'ar' ? 'خطأ في إنشاء PDF' : 'Error generating PDF', { id: 'pdf' });
     }
@@ -205,12 +202,9 @@ export default function AdminDashboard() {
     if (students.length === 0) return;
     try {
       toast.loading(lang === 'ar' ? 'جاري إنشاء PDF...' : 'Generating PDF...', { id: 'pdf' });
-      const blob = await generateBulkStudentPDF(students, lang);
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `students_${new Date().toISOString().split('T')[0]}.pdf`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      const blob = await exportToPdf(students, lang, getGradeLabels(), getSectionLabels());
+      const filterLabel = [gradeFilter, sectionFilter, genderFilter].filter(Boolean).join('_') || 'all';
+      downloadFile(blob, `students_${filterLabel}_${new Date().toISOString().split('T')[0]}.pdf`);
       toast.success(lang === 'ar' ? 'تم تحميل PDF بنجاح' : 'PDF downloaded', { id: 'pdf' });
     } catch {
       toast.error(lang === 'ar' ? 'خطأ في إنشاء PDF' : 'Error generating PDF', { id: 'pdf' });
@@ -309,33 +303,68 @@ export default function AdminDashboard() {
   };
 
   // ── Export ──
-  const doExport = (format: 'csv' | 'excel') => {
+  const getGradeLabels = (): Record<string, string> => {
+    const labels: Record<string, string> = {};
+    ['1','2','3','4','5','6'].forEach(g => { labels[g] = t(`grades.${g}`); });
+    return labels;
+  };
+  const getSectionLabels = (): Record<string, string> => {
+    const labels: Record<string, string> = {};
+    ['1','2','3'].forEach(s => { labels[s] = t(`sections.${s}`); });
+    return labels;
+  };
+
+  const downloadFile = (blob: Blob, filename: string) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const doExportExcel = () => {
+    if (students.length === 0) { toast.error(lang === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export'); return; }
+    try {
+      const blob = exportToExcel(students, lang, getGradeLabels(), getSectionLabels());
+      const filterLabel = [gradeFilter, sectionFilter, genderFilter].filter(Boolean).join('_') || 'all';
+      downloadFile(blob, `students_${filterLabel}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success(lang === 'ar' ? 'تم تصدير Excel بنجاح' : 'Excel exported successfully');
+    } catch (err) {
+      toast.error(lang === 'ar' ? 'خطأ في تصدير Excel' : 'Error exporting Excel');
+    }
+  };
+
+  const doExportCsv = () => {
     if (students.length === 0) { toast.error(lang === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export'); return; }
     const headers = lang === 'ar'
-      ? ['م', 'الاسم', 'الصف', 'الفصل', 'هاتف ولي الأمر', 'بريد ولي الأمر', 'الجنس', 'واتساب', 'تاريخ الإدخال']
-      : ['#', 'Name', 'Grade', 'Section', 'Parent Phone', 'Parent Email', 'Gender', 'WhatsApp', 'Date'];
+      ? ['م', 'الاسم', 'الفصل', 'رقم ولي الأمر', 'البريد الإلكتروني', 'النوع', 'واتساب']
+      : ['#', 'Name', 'Class', 'Parent Phone', 'Email', 'Gender', 'WhatsApp'];
     const rows = students.map((s, i) => {
       const [g, sec] = (s.className || '//').split('/');
       return [
-        i + 1, s.fullName, t(`grades.${g}`), t(`sections.${sec}`),
+        i + 1, s.fullName, `${t(`grades.${g}`)} - ${t(`sections.${sec}`)}`,
         s.parentPhone, s.parentEmail,
         s.gender === 'male' ? t('form.male') : t('form.female'),
         s.whatsapp || '',
-        new Date(s.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US'),
       ];
     });
-    const sep = format === 'csv' ? ',' : '\t';
-    const mime = format === 'csv' ? 'text/csv' : 'application/vnd.ms-excel';
-    const ext = format === 'csv' ? '.csv' : '.xls';
-    const content = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(sep)).join('\n');
-    const blob = new Blob(['\uFEFF' + content], { type: mime + ';charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    const content = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
     const filterLabel = [gradeFilter, sectionFilter, genderFilter].filter(Boolean).join('_') || 'all';
-    a.download = `students_${filterLabel}_${new Date().toISOString().split('T')[0]}${ext}`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast.success(lang === 'ar' ? `تم تصدير ${format.toUpperCase()}` : `${format.toUpperCase()} exported`);
+    downloadFile(blob, `students_${filterLabel}_${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success(lang === 'ar' ? 'تم تصدير CSV بنجاح' : 'CSV exported successfully');
+  };
+
+  const doExportJson = () => {
+    if (students.length === 0) { toast.error(lang === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export'); return; }
+    try {
+      const blob = exportToJson(students, lang, getGradeLabels(), getSectionLabels());
+      const filterLabel = [gradeFilter, sectionFilter, genderFilter].filter(Boolean).join('_') || 'all';
+      downloadFile(blob, `students_${filterLabel}_${new Date().toISOString().split('T')[0]}.json`);
+      toast.success(lang === 'ar' ? 'تم تصدير JSON بنجاح' : 'JSON exported successfully');
+    } catch (err) {
+      toast.error(lang === 'ar' ? 'خطأ في تصدير JSON' : 'Error exporting JSON');
+    }
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -691,14 +720,17 @@ export default function AdminDashboard() {
               {lang === 'ar' ? 'عرض' : 'Showing'} <span className="font-semibold text-foreground">{filteredCount}</span> {lang === 'ar' ? 'طالب' : 'students'}
             </p>
             <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" onClick={() => doExport('csv')} className="gap-1 h-7 text-xs">
-                <Download className="size-3" /> CSV
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => doExport('excel')} className="gap-1 h-7 text-xs">
-                <FileSpreadsheet className="size-3" /> Excel
+              <Button variant="outline" size="sm" onClick={doExportExcel} className="gap-1 h-7 text-xs bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700">
+                <FileSpreadsheet className="size-3" /> {lang === 'ar' ? 'Excel' : 'Excel'}
               </Button>
               <Button variant="outline" size="sm" onClick={downloadBulkPdf} className="gap-1 h-7 text-xs">
                 <FileText className="size-3" /> PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={doExportJson} className="gap-1 h-7 text-xs">
+                <Braces className="size-3" /> JSON
+              </Button>
+              <Button variant="outline" size="sm" onClick={doExportCsv} className="gap-1 h-7 text-xs">
+                <Download className="size-3" /> CSV
               </Button>
             </div>
           </div>
