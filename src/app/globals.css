@@ -268,7 +268,8 @@ html.transitioning *::after {
 }
 
 /* Ensure content stays above the background */
-.bg-animated > *:not(.bg-orb-mid) {
+/* Exclude .bg-orb-mid (decorative orb) and .notif-bell (fixed-position floating button) */
+.bg-animated > *:not(.bg-orb-mid):not(.notif-bell) {
   position: relative;
   z-index: 1;
 }

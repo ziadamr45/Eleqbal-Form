@@ -242,7 +242,7 @@ export default function HomePage() {
 
       {/* Notification Bell (floating for students) */}
       {user.role === 'student' && (
-        <div ref={notifRef} className="fixed top-16 right-3 z-50 sm:right-4">
+        <div ref={notifRef} className="notif-bell fixed top-16 right-3 z-50 sm:right-4">
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => setNotifOpen(!notifOpen)}
