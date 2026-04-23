@@ -12,7 +12,7 @@ export const translations: Record<Language, Record<string, Record<string, string
     lightMode: "الوضع الفاتح",
     login: {
       title: "تسجيل الدخول",
-      subtitle: "أدخل بريدك الإلكتروني لاستلام رمز التحقق",
+      subtitle: "استخدم حساب جوجل أو البريد الإلكتروني للمتابعة",
       emailLabel: "البريد الإلكتروني",
       emailPlaceholder: "أدخل بريدك الإلكتروني",
       emailRequired: "يرجى إدخال البريد الإلكتروني",
@@ -148,7 +148,7 @@ export const translations: Record<Language, Record<string, Record<string, string
     lightMode: "Light Mode",
     login: {
       title: "Login",
-      subtitle: "Enter your email to receive a verification code",
+      subtitle: "Use your Google account or email to continue",
       emailLabel: "Email Address",
       emailPlaceholder: "Enter your email address",
       emailRequired: "Please enter your email address",

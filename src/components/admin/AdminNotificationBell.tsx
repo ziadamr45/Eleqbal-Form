@@ -23,7 +23,7 @@ export default function AdminNotificationBell() {
   const [unread, setUnread] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
+  const [panelPos, setPanelPos] = useState({ top: 0, left: 0, right: 0 });
 
   const fetchNotifs = async () => {
     try {
@@ -41,23 +41,22 @@ export default function AdminNotificationBell() {
     if (!buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
     const panelWidth = window.innerWidth >= 640 ? 384 : 320; // sm:w-96 = 384px, w-80 = 320px
-    // Always align the panel to the button's right edge (or left edge in RTL)
-    let leftPos: number;
-    if (isRTL) {
-      // In RTL, the button is on the right side - align panel's right edge to button's right edge
-      leftPos = Math.max(8, rect.right - panelWidth);
-    } else {
-      // In LTR, the button is on the left side - align panel's left edge to button's left edge
-      leftPos = Math.min(rect.left, window.innerWidth - panelWidth - 8);
-    }
-    // Clamp to not overflow right edge
-    leftPos = Math.min(leftPos, window.innerWidth - panelWidth - 8);
-    leftPos = Math.max(leftPos, 8);
+    const gap = 8;
+    const topPos = rect.bottom + gap;
 
-    setPanelPos({
-      top: rect.bottom + 8,
-      left: leftPos,
-    });
+    if (isRTL) {
+      // RTL: position using `right` — align panel's right edge to button's right edge
+      const rightPos = window.innerWidth - rect.right;
+      const maxRight = window.innerWidth - panelWidth - gap;
+      const clampedRight = Math.min(Math.max(rightPos, gap), maxRight);
+      setPanelPos({ top: topPos, left: 0, right: clampedRight });
+    } else {
+      // LTR: position using `left` — align panel's left edge to button's left edge
+      let leftPos = rect.left;
+      leftPos = Math.min(leftPos, window.innerWidth - panelWidth - gap);
+      leftPos = Math.max(leftPos, gap);
+      setPanelPos({ top: topPos, left: leftPos, right: 0 });
+    }
   }, [isRTL]);
 
   useEffect(() => { fetchNotifs(); }, []);
@@ -132,7 +131,10 @@ export default function AdminNotificationBell() {
         <div
           ref={panelRef}
           className="fixed w-80 sm:w-96 bg-card border rounded-xl shadow-xl z-[100] overflow-hidden"
-          style={{ top: panelPos.top, left: panelPos.left }}
+          style={isRTL
+            ? { top: panelPos.top, right: panelPos.right }
+            : { top: panelPos.top, left: panelPos.left }
+          }
         >
           <div className="flex items-center justify-between p-3 border-b bg-muted/30">
             <h3 className="text-sm font-semibold flex items-center gap-2">

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import type { StudentRecord } from '@/lib/pdf'
+import { registerArabicFonts, prepareArabicText } from './arabic-pdf'
 
 // ─────────────────────────────────────────────
 // SHARED HELPERS
@@ -166,9 +167,7 @@ export function exportToJson(
 }
 
 // ─────────────────────────────────────────────
-// PDF EXPORT
-// Dynamic imports + English labels to avoid
-// Arabic rendering issues in jsPDF
+// PDF EXPORT (with Arabic font support)
 // ─────────────────────────────────────────────
 
 export async function exportToPdf(
@@ -187,14 +186,21 @@ export async function exportToPdf(
     format: 'a4',
   })
 
+  const isArabic = lang === 'ar'
+  const fontFamily = isArabic ? 'Amiri' : 'helvetica'
+
+  if (isArabic) {
+    await registerArabicFonts(doc)
+  }
+
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 12
 
-  const isArabic = lang === 'ar'
-
-  // Use bilingual labels - English for headers (jsPDF compatible), Arabic data as-is
-  const headers = ['Student Name', 'Class', 'Parent Phone', 'Email', 'Gender', 'WhatsApp', '#']
+  // Prepare Arabic headers
+  const headers = isArabic
+    ? ['اسم الطالب', 'الفصل', 'هاتف ولي الأمر', 'البريد', 'النوع', 'الواتساب', '#']
+    : ['Student Name', 'Class', 'Parent Phone', 'Email', 'Gender', 'WhatsApp', '#']
 
   const dateText = new Date().toLocaleDateString(
     isArabic ? 'ar-EG' : 'en-US',
@@ -205,90 +211,108 @@ export async function exportToPdf(
   doc.setFillColor(5, 150, 105)
   doc.rect(0, 0, pageWidth, 22, 'F')
 
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(fontFamily, 'bold')
   doc.setFontSize(16)
   doc.setTextColor(255, 255, 255)
-  doc.text('Al-Eqbal National College', pageWidth / 2, 10, { align: 'center' })
+  const collegeName = isArabic ? await prepareArabicText('كلية الإقبال القومية') : 'Al-Eqbal National College'
+  doc.text(collegeName, pageWidth / 2, 10, { align: 'center' })
 
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(fontFamily, 'normal')
   doc.setFontSize(10)
   doc.setTextColor(200, 230, 210)
-  doc.text('Students Data Report', pageWidth / 2, 17, { align: 'center' })
+  const reportTitle = isArabic ? await prepareArabicText('تقرير بيانات الطلاب') : 'Students Data Report'
+  doc.text(reportTitle, pageWidth / 2, 17, { align: 'center' })
 
   // ── Info Line ──
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(fontFamily, 'normal')
   doc.setFontSize(8)
   doc.setTextColor(100, 100, 100)
 
   const infoY = 28
-  doc.text(`Total Students: ${students.length}`, margin, infoY, { align: 'left' })
-  doc.text(`Export Date: ${dateText}`, pageWidth - margin, infoY, { align: 'right' })
+  if (isArabic) {
+    const totalText = await prepareArabicText(`إجمالي الطلاب: ${students.length}`)
+    const dateInfoText = await prepareArabicText(`تاريخ التصدير: ${dateText}`)
+    doc.text(totalText, pageWidth - margin, infoY, { align: 'right' })
+    doc.text(dateInfoText, margin, infoY, { align: 'left' })
+  } else {
+    doc.text(`Total Students: ${students.length}`, margin, infoY, { align: 'left' })
+    doc.text(`Export Date: ${dateText}`, pageWidth - margin, infoY, { align: 'right' })
+  }
 
-  // ── Table ──
-  const body = students.map((s, idx) => {
+  // ── Prepare table body with Arabic text ──
+  const body = await Promise.all(students.map(async (s, idx) => {
     const [g, sec] = (s.className || '//').split('/')
-    return [
+    const className = `${gradeLabels[g] || g} - ${sectionLabels[sec] || sec}`
+    const row = [
       s.fullName,
-      `${gradeLabels[g] || g} - ${sectionLabels[sec] || sec}`,
+      className,
       s.parentPhone,
       s.parentEmail,
       getGenderLabel(s.gender, lang),
       s.whatsapp || '',
       idx + 1,
     ]
-  })
+    if (isArabic) {
+      return await Promise.all(row.map(v => typeof v === 'string' ? prepareArabicText(v) : v))
+    }
+    return row
+  }))
 
+  // Prepare Arabic headers
+  const preparedHeaders = isArabic
+    ? await Promise.all(headers.map(h => prepareArabicText(h)))
+    : headers
+
+  // ── Table ──
   autoTable(doc, {
     startY: infoY + 4,
-    head: [headers],
-    body,
+    head: [preparedHeaders],
+    body: body as string[][],
     margin: { left: margin, right: margin },
     styles: {
-      font: 'helvetica',
-      fontSize: 8,
+      font: fontFamily,
+      fontSize: isArabic ? 9 : 8,
       cellPadding: { top: 2.5, bottom: 2.5, left: 2, right: 2 },
-      halign: 'left',
+      halign: isArabic ? 'right' : 'left',
       textColor: [30, 30, 30],
       lineColor: [210, 210, 210],
       lineWidth: 0.2,
     },
     headStyles: {
-      font: 'helvetica',
+      font: fontFamily,
       fontStyle: 'bold',
       fillColor: [5, 150, 105],
       textColor: [255, 255, 255],
-      fontSize: 9,
-      halign: 'left',
+      fontSize: isArabic ? 10 : 9,
+      halign: isArabic ? 'right' : 'left',
       cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
     },
     alternateRowStyles: {
       fillColor: [240, 253, 244],
     },
     columnStyles: {
-      0: { cellWidth: 35 },  // Name
-      1: { cellWidth: 28 },  // Class
-      2: { cellWidth: 25 },  // Phone
-      3: { cellWidth: 40 },  // Email
-      4: { cellWidth: 15 },  // Gender
-      5: { cellWidth: 25 },  // WhatsApp
-      6: { halign: 'center', cellWidth: 12 }, // #
+      0: { cellWidth: 35 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 25 },
+      3: { cellWidth: 40 },
+      4: { cellWidth: 15 },
+      5: { cellWidth: 25 },
+      6: { halign: 'center', cellWidth: 12 },
     },
     didDrawPage: (data: { pageNumber: number }) => {
       doc.setDrawColor(220, 220, 220)
       doc.setLineWidth(0.3)
       doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10)
 
-      doc.setFont('helvetica', 'normal')
+      doc.setFont(fontFamily, 'normal')
       doc.setFontSize(7)
       doc.setTextColor(160, 160, 160)
       const pageNum = data.pageNumber
       const totalPages = doc.getNumberOfPages()
-      doc.text(
-        `Page ${pageNum} / ${totalPages}`,
-        pageWidth / 2,
-        pageHeight - 6,
-        { align: 'center' },
-      )
+      const pageText = isArabic
+        ? await prepareArabicText(`صفحة ${pageNum} من ${totalPages}`)
+        : `Page ${pageNum} / ${totalPages}`
+      doc.text(pageText, pageWidth / 2, pageHeight - 6, { align: 'center' })
     },
   })
 
@@ -296,7 +320,7 @@ export async function exportToPdf(
 }
 
 // ─────────────────────────────────────────────
-// SINGLE STUDENT PDF
+// SINGLE STUDENT PDF (with Arabic font support)
 // ─────────────────────────────────────────────
 
 export async function exportSingleStudentPdf(
@@ -315,31 +339,39 @@ export async function exportSingleStudentPdf(
     format: 'a4',
   })
 
+  const isArabic = lang === 'ar'
+  const fontFamily = isArabic ? 'Amiri' : 'helvetica'
+
+  if (isArabic) {
+    await registerArabicFonts(doc)
+  }
+
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 20
   const contentWidth = pageWidth - margin * 2
-  const isArabic = lang === 'ar'
 
   // ── Header Band ──
   doc.setFillColor(5, 150, 105)
   doc.rect(0, 0, pageWidth, 38, 'F')
 
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(fontFamily, 'bold')
   doc.setFontSize(18)
   doc.setTextColor(255, 255, 255)
-  doc.text('Al-Eqbal National College', pageWidth / 2, 16, { align: 'center' })
+  const collegeName = isArabic ? await prepareArabicText('كلية الإقبال القومية') : 'Al-Eqbal National College'
+  doc.text(collegeName, pageWidth / 2, 16, { align: 'center' })
 
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(fontFamily, 'normal')
   doc.setFontSize(10)
   doc.setTextColor(200, 230, 210)
-  doc.text('Student Data Record', pageWidth / 2, 26, { align: 'center' })
+  const recordTitle = isArabic ? await prepareArabicText('سجل بيانات الطالب') : 'Student Data Record'
+  doc.text(recordTitle, pageWidth / 2, 26, { align: 'center' })
 
   // Student name
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(fontFamily, 'bold')
   doc.setFontSize(12)
   doc.setTextColor(255, 255, 255)
-  doc.text(student.fullName, pageWidth / 2, 34, { align: 'center' })
+  doc.text(isArabic ? await prepareArabicText(student.fullName) : student.fullName, pageWidth / 2, 34, { align: 'center' })
 
   // ── Decorative Lines ──
   doc.setDrawColor(232, 168, 56)
@@ -354,15 +386,15 @@ export async function exportSingleStudentPdf(
   const className = `${gradeLabels[g] || g} - ${sectionLabels[sec] || sec}`
 
   const fields: [string, string][] = [
-    ['Student Name', student.fullName],
-    ['Class', className],
-    ['Gender', getGenderLabel(student.gender, lang)],
-    ['Parent Phone', student.parentPhone],
-    ['Parent Email', student.parentEmail],
-    ['WhatsApp', student.whatsapp || '--'],
-    ['Account Email', student.userEmail],
+    [isArabic ? 'اسم الطالب' : 'Student Name', student.fullName],
+    [isArabic ? 'الصف' : 'Class', className],
+    [isArabic ? 'الجنس' : 'Gender', getGenderLabel(student.gender, lang)],
+    [isArabic ? 'هاتف ولي الأمر' : 'Parent Phone', student.parentPhone],
+    [isArabic ? 'بريد ولي الأمر' : 'Parent Email', student.parentEmail],
+    [isArabic ? 'رقم الواتساب' : 'WhatsApp', student.whatsapp || '--'],
+    [isArabic ? 'البريد الإلكتروني' : 'Account Email', student.userEmail],
     [
-      'Registration Date',
+      isArabic ? 'تاريخ التسجيل' : 'Registration Date',
       new Date(student.createdAt).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', {
         year: 'numeric',
         month: 'long',
@@ -371,7 +403,17 @@ export async function exportSingleStudentPdf(
     ],
   ]
 
-  const tableBody = fields.map(([label, value]) => [label, value])
+  // Prepare Arabic text
+  const preparedFields = await Promise.all(
+    fields.map(async ([label, value]) => {
+      if (isArabic) {
+        return [await prepareArabicText(label), await prepareArabicText(value)] as [string, string]
+      }
+      return [label, value] as [string, string]
+    })
+  )
+
+  const tableBody = preparedFields.map(([label, value]) => [label, value])
 
   autoTable(doc, {
     startY: 50,
@@ -379,8 +421,8 @@ export async function exportSingleStudentPdf(
     margin: { left: margin, right: margin },
     theme: 'plain',
     styles: {
-      font: 'helvetica',
-      fontSize: 10,
+      font: fontFamily,
+      fontSize: isArabic ? 11 : 10,
       cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
       textColor: [30, 30, 30],
       lineColor: [220, 220, 220],
@@ -388,16 +430,16 @@ export async function exportSingleStudentPdf(
     },
     columnStyles: {
       0: {
-        font: 'helvetica',
+        font: fontFamily,
         fontStyle: 'bold',
         fillColor: [240, 253, 244],
         textColor: [5, 150, 105],
         cellWidth: contentWidth * 0.35,
-        halign: 'right',
+        halign: isArabic ? 'right' : 'right',
       },
       1: {
         cellWidth: contentWidth * 0.65,
-        halign: 'left',
+        halign: isArabic ? 'right' : 'left',
       },
     },
     alternateRowStyles: {
@@ -415,22 +457,32 @@ export async function exportSingleStudentPdf(
   doc.setLineWidth(0.3)
   doc.line(margin, pageHeight - 18, pageWidth - margin, pageHeight - 18)
 
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(fontFamily, 'normal')
   doc.setFontSize(7)
   doc.setTextColor(160, 160, 160)
 
   const footerDate = new Date().toLocaleString(isArabic ? 'ar-EG' : 'en-US')
   const idShort = student.id.slice(0, 8)
 
+  let footerText: string
+  let creditsText: string
+  if (isArabic) {
+    footerText = `أُنشئ: ${footerDate}  |  الرقم: ${idShort}`
+    creditsText = 'كلية الإقبال القومية'
+  } else {
+    footerText = `Generated: ${footerDate}  |  ID: ${idShort}`
+    creditsText = 'Al-Eqbal National College'
+  }
+
   doc.text(
-    `Generated: ${footerDate}  |  ID: ${idShort}`,
+    isArabic ? await prepareArabicText(footerText) : footerText,
     pageWidth / 2,
     pageHeight - 12,
     { align: 'center' },
   )
 
   doc.text(
-    'Al-Eqbal National College',
+    isArabic ? await prepareArabicText(creditsText) : creditsText,
     pageWidth / 2,
     pageHeight - 7,
     { align: 'center' },
