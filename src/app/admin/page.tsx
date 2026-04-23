@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, GraduationCap, Users, User, Shield, Search, Download, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LayoutDashboard, LogOut, Menu, ArrowUpDown, Filter, RefreshCw, CheckCircle2, FileSpreadsheet } from 'lucide-react';
+import { Loader2, Users, User, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,38 +14,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 
 interface StudentRecord {
-  id: string;
-  fullName: string;
-  className: string;
-  parentPhone: string;
-  parentEmail: string;
-  gender: string;
-  whatsapp: string | null;
-  userEmail: string;
-  userName: string | null;
-  userCreatedAt: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string; fullName: string; className: string; parentPhone: string;
+  parentEmail: string; gender: string; whatsapp: string | null;
+  userEmail: string; userName: string | null; createdAt: string; updatedAt: string;
 }
 
-interface Stats {
-  totalStudents: number;
-  totalUsers: number;
-  maleCount: number;
-  femaleCount: number;
-  studentsByClass: { className: string; count: number }[];
-  recentStudents: { fullName: string; className: string; createdAt: string }[];
-}
+interface Stats { totalStudents: number; totalUsers: number; maleCount: number; femaleCount: number; studentsByClass: { className: string; count: number }[] }
 
 const GRADE_KEYS = ['1', '2', '3', '4', '5', '6'] as const;
-const PAGE_SIZE = 25;
+const SECTION_KEYS = ['1', '2', '3'] as const;
+const PAGE_SIZE = 50;
+
+const emptyForm = { fullName: '', parentPhone: '', parentEmail: '', gender: '', whatsapp: '', parentName: '' };
 
 export default function AdminDashboard() {
   const router = useRouter();
   const { lang, dir } = useLanguage();
   const t = getT(lang);
+  const isRTL = dir === 'rtl';
 
+  // Auth
   const [authed, setAuthed] = useState<boolean | null>(null);
+
+  // Data
   const [stats, setStats] = useState<Stats | null>(null);
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,20 +46,31 @@ export default function AdminDashboard() {
   // Filters
   const [search, setSearch] = useState('');
   const [gradeFilter, setGradeFilter] = useState('');
+  const [sectionFilter, setSectionFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [sort, setSort] = useState('newest');
 
-  // Edit modal
+  // View student
+  const [viewStudent, setViewStudent] = useState<StudentRecord | null>(null);
+
+  // Add student
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState(emptyForm);
+  const [addGrade, setAddGrade] = useState('');
+  const [addSection, setAddSection] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  // Edit student
   const [editStudent, setEditStudent] = useState<StudentRecord | null>(null);
-  const [editForm, setEditForm] = useState({ fullName: '', className: '', parentPhone: '', parentEmail: '', gender: '', whatsapp: '' });
+  const [editForm, setEditForm] = useState({ fullName: '', parentPhone: '', parentEmail: '', gender: '', whatsapp: '' });
   const [editGrade, setEditGrade] = useState('');
   const [editSection, setEditSection] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Mobile sidebar
+  // Mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Check admin auth
+  // ── Auth ──
   const checkAuth = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/me');
@@ -79,30 +81,28 @@ export default function AdminDashboard() {
     } catch { router.push('/'); }
   }, [router]);
 
-  // Fetch stats
+  // ── Fetch Stats ──
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/stats');
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-      }
+      if (res.ok) setStats((await res.json()).stats);
     } catch { /* ignore */ }
   }, []);
 
-  // Fetch students
+  // ── Fetch Students ──
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      if (gradeFilter) params.set('grade', gradeFilter);
-      if (genderFilter) params.set('gender', genderFilter);
-      if (sort) params.set('sort', sort);
-      params.set('page', page.toString());
-      params.set('limit', PAGE_SIZE.toString());
+      const p = new URLSearchParams();
+      if (search) p.set('search', search);
+      if (gradeFilter) p.set('grade', gradeFilter);
+      if (sectionFilter) p.set('section', sectionFilter);
+      if (genderFilter) p.set('gender', genderFilter);
+      if (sort) p.set('sort', sort);
+      p.set('page', page.toString());
+      p.set('limit', PAGE_SIZE.toString());
 
-      const res = await fetch(`/api/admin/students?${params}`);
+      const res = await fetch(`/api/admin/students?${p}`);
       if (res.ok) {
         const data = await res.json();
         setStudents(data.students);
@@ -110,138 +110,112 @@ export default function AdminDashboard() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [search, gradeFilter, genderFilter, sort, page]);
+  }, [search, gradeFilter, sectionFilter, genderFilter, sort, page]);
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
-
   useEffect(() => {
-    if (authed) {
-      fetchStats();
-      fetchStudents();
-    }
+    if (authed) { fetchStats(); fetchStudents(); }
   }, [authed, fetchStats, fetchStudents]);
+  useEffect(() => { setPage(1); }, [search, gradeFilter, sectionFilter, genderFilter, sort]);
 
-  // Reset page on filter change
-  useEffect(() => { setPage(1); }, [search, gradeFilter, genderFilter, sort]);
+  // ── Helpers ──
+  const handleLogout = async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/'); };
+  const parseCN = (cn: string) => { const [g, s] = (cn || '/').split('/'); return `${t(`grades.${g}`)} - ${t(`sections.${s}`)}`; };
+  const cn = (g: string, s: string) => `${g}/${s}`;
+  const refresh = () => { fetchStudents(); fetchStats(); };
 
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/');
+  // ── Add Student ──
+  const handleAdd = async () => {
+    if (!addForm.fullName || !addGrade || !addSection || !addForm.parentPhone || !addForm.parentEmail || !addForm.gender) {
+      toast.error(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+    setAdding(true);
+    try {
+      const res = await fetch('/api/admin/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...addForm, className: cn(addGrade, addSection) }),
+      });
+      if (res.ok) {
+        toast.success(lang === 'ar' ? 'تم إضافة الطالب بنجاح' : 'Student added successfully');
+        setShowAdd(false); setAddForm(emptyForm); setAddGrade(''); setAddSection('');
+        refresh();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d.error || 'Error');
+      }
+    } catch { toast.error('Error'); }
+    finally { setAdding(false); }
   };
 
-  const parseClassName = (cn: string) => {
-    const [g, s] = (cn || '/').split('/');
-    return `${t(`grades.${g}`)} - ${t(`sections.${s}`)}`;
-  };
-
-  // Edit
+  // ── Edit ──
   const openEdit = (s: StudentRecord) => {
     const [g, sec] = (s.className || '/').split('/');
     setEditStudent(s);
-    setEditForm({ fullName: s.fullName, className: s.className, parentPhone: s.parentPhone, parentEmail: s.parentEmail, gender: s.gender, whatsapp: s.whatsapp || '' });
-    setEditGrade(g || '');
-    setEditSection(sec || '');
+    setEditForm({ fullName: s.fullName, parentPhone: s.parentPhone, parentEmail: s.parentEmail, gender: s.gender, whatsapp: s.whatsapp || '' });
+    setEditGrade(g || ''); setEditSection(sec || '');
   };
-
   const saveEdit = async () => {
     if (!editStudent) return;
     setSaving(true);
     try {
-      const className = `${editGrade}/${editSection}`;
       const res = await fetch(`/api/admin/students/${editStudent.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...editForm, className }),
+        body: JSON.stringify({ ...editForm, className: cn(editGrade, editSection) }),
       });
       if (res.ok) {
-        toast.success(lang === 'ar' ? 'تم التحديث بنجاح' : 'Updated successfully');
-        setEditStudent(null);
-        fetchStudents();
-        fetchStats();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Error');
-      }
+        toast.success(lang === 'ar' ? 'تم التحديث' : 'Updated');
+        setEditStudent(null); refresh();
+      } else { const d = await res.json().catch(() => ({})); toast.error(d.error || 'Error'); }
     } catch { toast.error('Error'); }
     finally { setSaving(false); }
   };
 
-  // Delete
+  // ── Delete ──
   const handleDelete = async (s: StudentRecord) => {
-    const msg = lang === 'ar'
-      ? `هل أنت متأكد من حذف بيانات الطالب "${s.fullName}"؟`
-      : `Are you sure you want to delete "${s.fullName}"?`;
-    if (!window.confirm(msg)) return;
+    if (!window.confirm(lang === 'ar' ? `حذف "${s.fullName}"؟ لا يمكن التراجع.` : `Delete "${s.fullName}"? This cannot be undone.`)) return;
     try {
       const res = await fetch(`/api/admin/students/${s.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success(lang === 'ar' ? 'تم الحذف بنجاح' : 'Deleted successfully');
-        fetchStudents();
-        fetchStats();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Error');
-      }
+      if (res.ok) { toast.success(lang === 'ar' ? 'تم الحذف' : 'Deleted'); refresh(); }
+      else { const d = await res.json().catch(() => ({})); toast.error(d.error || 'Error'); }
     } catch { toast.error('Error'); }
   };
 
-  // Export CSV
-  const exportCSV = () => {
+  // ── Export ──
+  const doExport = (format: 'csv' | 'excel') => {
+    if (students.length === 0) { toast.error(lang === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export'); return; }
     const headers = lang === 'ar'
-      ? ['الاسم', 'الصف - الفصل', 'هاتف ولي الأمر', 'بريد ولي الأمر', 'الجنس', 'واتساب', 'بريد المستخدم', 'تاريخ التسجيل']
-      : ['Name', 'Class', 'Parent Phone', 'Parent Email', 'Gender', 'WhatsApp', 'User Email', 'Registered At'];
-    const rows = students.map(s => [
-      s.fullName,
-      parseClassName(s.className),
-      s.parentPhone,
-      s.parentEmail,
-      s.gender === 'male' ? t('form.male') : t('form.female'),
-      s.whatsapp || '',
-      s.userEmail,
-      new Date(s.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US'),
-    ]);
-    const csvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+      ? ['م', 'الاسم', 'الصف', 'الفصل', 'هاتف ولي الأمر', 'بريد ولي الأمر', 'الجنس', 'واتساب', 'تاريخ الإدخال']
+      : ['#', 'Name', 'Grade', 'Section', 'Parent Phone', 'Parent Email', 'Gender', 'WhatsApp', 'Date'];
+    const rows = students.map((s, i) => {
+      const [g, sec] = (s.className || '//').split('/');
+      return [
+        i + 1, s.fullName, t(`grades.${g}`), t(`sections.${sec}`),
+        s.parentPhone, s.parentEmail,
+        s.gender === 'male' ? t('form.male') : t('form.female'),
+        s.whatsapp || '',
+        new Date(s.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US'),
+      ];
+    });
+    const sep = format === 'csv' ? ',' : '\t';
+    const mime = format === 'csv' ? 'text/csv' : 'application/vnd.ms-excel';
+    const ext = format === 'csv' ? '.csv' : '.xls';
+    const content = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(sep)).join('\n');
+    const blob = new Blob(['\uFEFF' + content], { type: mime + ';charset=utf-8;' });
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `students_${new Date().toISOString().split('T')[0]}.csv`;
+    a.href = URL.createObjectURL(blob);
+    const filterLabel = [gradeFilter, sectionFilter, genderFilter].filter(Boolean).join('_') || 'all';
+    a.download = `students_${filterLabel}_${new Date().toISOString().split('T')[0]}${ext}`;
     a.click();
-    URL.revokeObjectURL(url);
-    toast.success(lang === 'ar' ? 'تم تصدير CSV' : 'CSV exported');
-  };
-
-  // Export Excel (as TSV with BOM - opens in Excel)
-  const exportExcel = () => {
-    const headers = lang === 'ar'
-      ? ['الاسم', 'الصف - الفصل', 'هاتف ولي الأمر', 'بريد ولي الأمر', 'الجنس', 'واتساب', 'بريد المستخدم', 'تاريخ التسجيل']
-      : ['Name', 'Class', 'Parent Phone', 'Parent Email', 'Gender', 'WhatsApp', 'User Email', 'Registered At'];
-    const rows = students.map(s => [
-      s.fullName,
-      parseClassName(s.className),
-      s.parentPhone,
-      s.parentEmail,
-      s.gender === 'male' ? t('form.male') : t('form.female'),
-      s.whatsapp || '',
-      s.userEmail,
-      new Date(s.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US'),
-    ]);
-    const tsvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join('\t')).join('\n');
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + tsvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `students_${new Date().toISOString().split('T')[0]}.xls`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(lang === 'ar' ? 'تم تصدير Excel' : 'Excel exported');
+    URL.revokeObjectURL(a.href);
+    toast.success(lang === 'ar' ? `تم تصدير ${format.toUpperCase()}` : `${format.toUpperCase()} exported`);
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const isRTL = dir === 'rtl';
 
+  // ── Loading ──
   if (authed === null || !authed) {
     return (
       <div dir={dir} className="min-h-screen flex items-center justify-center bg-background">
@@ -250,378 +224,448 @@ export default function AdminDashboard() {
     );
   }
 
+  // ── Count for current filter
+  const filteredCount = total;
+  const activeFilters = [gradeFilter, sectionFilter, genderFilter, search].filter(Boolean).length;
+
   return (
     <div dir={dir} className="min-h-screen flex bg-muted/30">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+      {/* Sidebar overlay */}
+      {sidebarOpen && <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 ${isRTL ? 'right-0' : 'left-0'} z-40 w-64 bg-card border-${isRTL ? 'l' : 'r'} transform transition-transform lg:translate-x-0 lg:static lg:z-auto ${sidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full')}`}>
         <div className="flex flex-col h-full">
           <div className="p-4 border-b flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white">
-              <Shield className="size-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shrink-0"><Shield className="size-5" /></div>
+            <div className="min-w-0">
+              <h2 className="font-bold text-sm truncate">{lang === 'ar' ? 'لوحة التحكم' : 'Admin'}</h2>
+              <p className="text-xs text-muted-foreground truncate">كلية الاقبال القوميه</p>
             </div>
-            <div>
-              <h2 className="font-bold text-sm">{lang === 'ar' ? 'لوحة التحكم' : 'Admin Panel'}</h2>
-              <p className="text-xs text-muted-foreground">كلية الاقبال القوميه</p>
-            </div>
-            <button className="lg:hidden ml-auto" onClick={() => setSidebarOpen(false)}>
-              <X className="size-5" />
-            </button>
+            <button className="lg:hidden mr-auto" onClick={() => setSidebarOpen(false)}><X className="size-5" /></button>
           </div>
 
           <nav className="flex-1 p-3 space-y-1">
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              <LayoutDashboard className="size-4" />
-              {lang === 'ar' ? 'الرئيسية' : 'Dashboard'}
-            </div>
+            <a href="#" onClick={(e) => { e.preventDefault(); }} className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              <Users className="size-4" /> {lang === 'ar' ? 'إدارة البيانات' : 'Data Management'}
+            </a>
           </nav>
 
           <div className="p-3 border-t">
-            <button onClick={handleLogout} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-              <LogOut className="size-4" />
-              {lang === 'ar' ? 'تسجيل الخروج' : 'Logout'}
+            <button onClick={() => router.push('/')} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+              <School className="size-4" /> {lang === 'ar' ? 'الموقع الرئيسي' : 'Main Site'}
+            </button>
+            <button onClick={handleLogout} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors mt-1">
+              <LogOut className="size-4" /> {lang === 'ar' ? 'خروج' : 'Logout'}
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-card border-b px-4 py-3 flex items-center gap-3">
-          <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-            <Menu className="size-5" />
-          </button>
-          <h1 className="font-semibold text-lg">{lang === 'ar' ? 'لوحة تحكم المدير' : 'Admin Dashboard'}</h1>
-          <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="gap-1.5 mr-auto">
-            <School className="size-4" />
-            {lang === 'ar' ? 'الموقع الرئيسي' : 'Main Site'}
-          </Button>
+          <button className="lg:hidden" onClick={() => setSidebarOpen(true)}><Menu className="size-5" /></button>
+          <h1 className="font-semibold text-lg">{lang === 'ar' ? 'إدارة بيانات الطلاب' : 'Student Data Management'}</h1>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+              {stats?.totalStudents || 0} {lang === 'ar' ? 'طالب' : 'students'}
+            </span>
+          </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 space-y-6">
-          {/* Stats Cards */}
+        <main className="flex-1 p-4 md:p-6 space-y-4">
+          {/* Quick Stats */}
           {stats && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                    <Users className="size-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.totalStudents}</p>
-                    <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'إجمالي الطلاب' : 'Total Students'}</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                    <GraduationCap className="size-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.totalUsers}</p>
-                    <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'إجمالي المستخدمين' : 'Total Users'}</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-900/30">
-                    <User className="size-5 text-sky-600 dark:text-sky-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.maleCount}</p>
-                    <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'ذكور' : 'Male'}</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-pink-100 dark:bg-pink-900/30">
-                    <User className="size-5 text-pink-600 dark:text-pink-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.femaleCount}</p>
-                    <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'إناث' : 'Female'}</p>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalStudents}</p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">{lang === 'ar' ? 'إجمالي الطلاب' : 'Total'}</p>
+              </div>
+              <div className="rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 p-3 text-center">
+                <p className="text-2xl font-bold text-sky-700 dark:text-sky-300">{stats.maleCount}</p>
+                <p className="text-xs text-sky-600 dark:text-sky-400">{lang === 'ar' ? 'ذكور' : 'Male'}</p>
+              </div>
+              <div className="rounded-xl bg-pink-50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-800 p-3 text-center">
+                <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">{stats.femaleCount}</p>
+                <p className="text-xs text-pink-600 dark:text-pink-400">{lang === 'ar' ? 'إناث' : 'Female'}</p>
+              </div>
+              <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 text-center">
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.studentsByClass.length}</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'ar' ? 'فصل' : 'Classes'}</p>
+              </div>
             </div>
           )}
 
-          {/* Class Distribution */}
+          {/* Class Quick Filter Chips */}
           {stats && stats.studentsByClass.length > 0 && (
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{lang === 'ar' ? 'توزيع الطلاب على الفصول' : 'Students by Class'}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {stats.studentsByClass.map(c => (
-                    <div key={c.className} className="rounded-lg bg-muted p-3 text-center">
-                      <p className="text-lg font-bold text-emerald-600">{c.count}</p>
-                      <p className="text-xs text-muted-foreground">{parseClassName(c.className)}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => { setGradeFilter(''); setSectionFilter(''); }}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${!gradeFilter && !sectionFilter ? 'bg-emerald-600 text-white shadow-sm' : 'bg-card border text-muted-foreground hover:bg-muted'}`}>
+                {lang === 'ar' ? 'الكل' : 'All'} ({stats.totalStudents})
+              </button>
+              {stats.studentsByClass.map(c => {
+                const isActive = c.className === cn(gradeFilter, sectionFilter);
+                return (
+                  <button key={c.className} onClick={() => {
+                    const [g, s] = c.className.split('/');
+                    if (isActive) { setGradeFilter(''); setSectionFilter(''); }
+                    else { setGradeFilter(g); setSectionFilter(s); }
+                  }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'bg-card border text-muted-foreground hover:bg-muted'}`}>
+                    {parseCN(c.className)} ({c.count})
+                  </button>
+                );
+              })}
+            </div>
           )}
 
-          {/* Filters & Search */}
+          {/* Filters & Actions Bar */}
           <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                {/* Search */}
-                <div className="flex-1 relative">
-                  <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 size-4 text-muted-foreground`} />
-                  <Input
-                    placeholder={lang === 'ar' ? 'بحث بالاسم أو الهاتف...' : 'Search by name or phone...'}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className={`${isRTL ? 'pr-10' : 'pl-10'} h-10`}
-                  />
+            <CardContent className="p-3">
+              <div className="flex flex-col gap-3">
+                {/* Row 1: Search + Actions */}
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 size-4 text-muted-foreground`} />
+                    <Input placeholder={lang === 'ar' ? 'بحث بالاسم أو الهاتف أو الإيميل...' : 'Search by name, phone or email...'}
+                      value={search} onChange={(e) => setSearch(e.target.value)}
+                      className={`${isRTL ? 'pr-10' : 'pl-10'} h-9 text-sm`} />
+                  </div>
+                  <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white">
+                    <UserPlus className="size-4" />
+                    <span className="hidden sm:inline">{lang === 'ar' ? 'إضافة طالب' : 'Add Student'}</span>
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={refresh} className="h-9 w-9 shrink-0">
+                    <RefreshCw className="size-4" />
+                  </Button>
                 </div>
-                {/* Grade Filter */}
-                <Select value={gradeFilter} onValueChange={(v) => setGradeFilter(v === '__all__' ? '' : v)}>
-                  <SelectTrigger className="h-10 w-full sm:w-[180px]">
-                    <SelectValue placeholder={lang === 'ar' ? 'كل الصفوف' : 'All Grades'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">{lang === 'ar' ? 'كل الصفوف' : 'All Grades'}</SelectItem>
-                    {GRADE_KEYS.map(g => (
-                      <SelectItem key={g} value={g}>{t(`grades.${g}`)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {/* Gender Filter */}
-                <Select value={genderFilter} onValueChange={(v) => setGenderFilter(v === '__all__' ? '' : v)}>
-                  <SelectTrigger className="h-10 w-full sm:w-[140px]">
-                    <SelectValue placeholder={lang === 'ar' ? 'الجنس' : 'Gender'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">{lang === 'ar' ? 'الكل' : 'All'}</SelectItem>
-                    <SelectItem value="male">{t('form.male')}</SelectItem>
-                    <SelectItem value="female">{t('form.female')}</SelectItem>
-                  </SelectContent>
-                </Select>
-                {/* Sort */}
-                <Select value={sort} onValueChange={setSort}>
-                  <SelectTrigger className="h-10 w-full sm:w-[160px]">
-                    <ArrowUpDown className="size-4 me-1.5" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">{lang === 'ar' ? 'الأحدث' : 'Newest'}</SelectItem>
-                    <SelectItem value="oldest">{lang === 'ar' ? 'الأقدم' : 'Oldest'}</SelectItem>
-                    <SelectItem value="name_asc">{lang === 'ar' ? 'الاسم (أ-ي)' : 'Name (A-Z)'}</SelectItem>
-                    <SelectItem value="name_desc">{lang === 'ar' ? 'الاسم (ي-أ)' : 'Name (Z-A)'}</SelectItem>
-                  </SelectContent>
-                </Select>
-                {/* Refresh */}
-                <Button variant="outline" size="icon" onClick={() => { fetchStudents(); fetchStats(); }} className="h-10 w-10 shrink-0">
-                  <RefreshCw className="size-4" />
-                </Button>
+
+                {/* Row 2: Dropdown Filters */}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Filter className="size-3.5" />
+                    {lang === 'ar' ? 'تصفية:' : 'Filter:'}
+                  </div>
+                  <Select value={gradeFilter || '__all__'} onValueChange={(v) => { setGradeFilter(v === '__all__' ? '' : v); setSectionFilter(''); }}>
+                    <SelectTrigger className={`h-8 w-auto min-w-[140px] text-xs ${gradeFilter ? 'border-emerald-500' : ''}`}>
+                      <SelectValue placeholder={lang === 'ar' ? 'كل الصفوف' : 'All Grades'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">{lang === 'ar' ? 'كل الصفوف' : 'All Grades'}</SelectItem>
+                      {GRADE_KEYS.map(g => <SelectItem key={g} value={g}>{t(`grades.${g}`)}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {gradeFilter && (
+                    <Select value={sectionFilter || '__all__'} onValueChange={(v) => setSectionFilter(v === '__all__' ? '' : v)}>
+                      <SelectTrigger className={`h-8 w-auto min-w-[120px] text-xs ${sectionFilter ? 'border-emerald-500' : ''}`}>
+                        <SelectValue placeholder={lang === 'ar' ? 'كل الفصول' : 'All Sections'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">{lang === 'ar' ? 'كل الفصول' : 'All Sections'}</SelectItem>
+                        {SECTION_KEYS.map(s => <SelectItem key={s} value={s}>{t(`sections.${s}`)}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Select value={genderFilter || '__all__'} onValueChange={(v) => setGenderFilter(v === '__all__' ? '' : v)}>
+                    <SelectTrigger className={`h-8 w-auto min-w-[100px] text-xs ${genderFilter ? 'border-emerald-500' : ''}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">{lang === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      <SelectItem value="male">{t('form.male')}</SelectItem>
+                      <SelectItem value="female">{t('form.female')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={sort} onValueChange={setSort}>
+                    <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs">
+                      <ArrowUpDown className="size-3 me-1" /><SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">{lang === 'ar' ? 'الأحدث' : 'Newest'}</SelectItem>
+                      <SelectItem value="oldest">{lang === 'ar' ? 'الأقدم' : 'Oldest'}</SelectItem>
+                      <SelectItem value="name_asc">{lang === 'ar' ? 'الاسم أ→ي' : 'Name A→Z'}</SelectItem>
+                      <SelectItem value="name_desc">{lang === 'ar' ? 'الاسم ي→أ' : 'Name Z→A'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {activeFilters > 0 && (
+                    <button onClick={() => { setSearch(''); setGradeFilter(''); setSectionFilter(''); setGenderFilter(''); setSort('newest'); }}
+                      className="rounded-full px-2.5 py-1 text-xs text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors">
+                      {lang === 'ar' ? 'مسح الفلاتر' : 'Clear'} ×
+                    </button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Results bar */}
+          <div className="flex items-center justify-between px-1">
+            <p className="text-sm text-muted-foreground">
+              {lang === 'ar' ? 'عرض' : 'Showing'} <span className="font-semibold text-foreground">{filteredCount}</span> {lang === 'ar' ? 'طالب' : 'students'}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" onClick={() => doExport('csv')} className="gap-1 h-7 text-xs">
+                <Download className="size-3" /> CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => doExport('excel')} className="gap-1 h-7 text-xs">
+                <FileSpreadsheet className="size-3" /> Excel
+              </Button>
+            </div>
+          </div>
+
           {/* Data Table */}
-          <Card className="shadow-sm">
-            <CardContent className="p-0">
-              {/* Export buttons */}
-              <div className="flex items-center justify-between p-4 border-b">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{lang === 'ar' ? 'سجلات الطلاب' : 'Student Records'}</span>
-                  <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{total}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1.5 h-8 text-xs">
-                    <Download className="size-3.5" />
-                    CSV
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={exportExcel} className="gap-1.5 h-8 text-xs">
-                    <FileSpreadsheet className="size-3.5" />
-                    Excel
-                  </Button>
-                </div>
+          <Card className="shadow-sm overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-20"><Loader2 className="size-6 animate-spin text-emerald-600" /></div>
+            ) : students.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                <Users className="size-10 mb-3 opacity-20" />
+                <p className="text-sm">{lang === 'ar' ? 'لا توجد بيانات' : 'No data'}</p>
+                <Button size="sm" onClick={() => setShowAdd(true)} className="mt-3 gap-1.5 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <Plus className="size-3.5" /> {lang === 'ar' ? 'إضافة طالب جديد' : 'Add new student'}
+                </Button>
               </div>
-
-              {/* Table */}
-              {loading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="size-6 animate-spin text-emerald-600" />
-                </div>
-              ) : students.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                  <Users className="size-10 mb-3 opacity-30" />
-                  <p className="text-sm">{lang === 'ar' ? 'لا توجد بيانات' : 'No data found'}</p>
-                </div>
-              ) : (
-                <>
-                  {/* Desktop table */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="text-start px-4 py-3 font-medium">#</th>
-                          <th className="text-start px-4 py-3 font-medium">{t('form.fullName')}</th>
-                          <th className="text-start px-4 py-3 font-medium">{t('form.grade')}</th>
-                          <th className="text-start px-4 py-3 font-medium">{t('form.gender')}</th>
-                          <th className="text-start px-4 py-3 font-medium">{t('form.parentPhone')}</th>
-                          <th className="text-start px-4 py-3 font-medium">{t('form.parentEmail')}</th>
-                          <th className="text-start px-4 py-3 font-medium">{t('form.whatsapp')}</th>
-                          <th className="text-center px-4 py-3 font-medium">{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
+            ) : (
+              <>
+                {/* Desktop Table */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-start px-3 py-2.5 font-medium text-xs w-8">#</th>
+                        <th className="text-start px-3 py-2.5 font-medium text-xs">{t('form.fullName')}</th>
+                        <th className="text-start px-3 py-2.5 font-medium text-xs">{t('form.grade')}</th>
+                        <th className="text-start px-3 py-2.5 font-medium text-xs">{t('form.gender')}</th>
+                        <th className="text-start px-3 py-2.5 font-medium text-xs">{t('form.parentPhone')}</th>
+                        <th className="text-start px-3 py-2.5 font-medium text-xs">{t('form.parentEmail')}</th>
+                        <th className="text-start px-3 py-2.5 font-medium text-xs">{t('form.whatsapp')}</th>
+                        <th className="text-center px-3 py-2.5 font-medium text-xs w-24">{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {students.map((s, i) => (
+                        <tr key={s.id} className="border-b last:border-0 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10 transition-colors">
+                          <td className="px-3 py-2.5 text-muted-foreground text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                          <td className="px-3 py-2.5 font-medium">{s.fullName}</td>
+                          <td className="px-3 py-2.5 text-xs">{parseCN(s.className)}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.gender === 'male' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'}`}>
+                              {s.gender === 'male' ? t('form.male') : t('form.female')}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-xs font-mono" dir="ltr">{s.parentPhone}</td>
+                          <td className="px-3 py-2.5 text-xs" dir="ltr">{s.parentEmail}</td>
+                          <td className="px-3 py-2.5 text-xs font-mono" dir="ltr">{s.whatsapp || '—'}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <button onClick={() => setViewStudent(s)} className="p-1.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 transition-colors" title={lang === 'ar' ? 'عرض' : 'View'}>
+                                <Eye className="size-3.5" />
+                              </button>
+                              <button onClick={() => openEdit(s)} className="p-1.5 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 transition-colors" title={t('form.edit')}>
+                                <Pencil className="size-3.5" />
+                              </button>
+                              <button onClick={() => handleDelete(s)} className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 transition-colors" title={t('form.delete')}>
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {students.map((s, i) => (
-                          <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                            <td className="px-4 py-3 text-muted-foreground">{(page - 1) * PAGE_SIZE + i + 1}</td>
-                            <td className="px-4 py-3 font-medium">{s.fullName}</td>
-                            <td className="px-4 py-3">{parseClassName(s.className)}</td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${s.gender === 'male' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'}`}>
-                                {s.gender === 'male' ? t('form.male') : t('form.female')}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3" dir="ltr">{s.parentPhone}</td>
-                            <td className="px-4 py-3" dir="ltr">{s.parentEmail}</td>
-                            <td className="px-4 py-3" dir="ltr">{s.whatsapp || '—'}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => openEdit(s)} className="p-1.5 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 transition-colors" title={t('form.edit')}>
-                                  <Pencil className="size-4" />
-                                </button>
-                                <button onClick={() => handleDelete(s)} className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 transition-colors" title={t('form.delete')}>
-                                  <Trash2 className="size-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                  {/* Mobile cards */}
-                  <div className="md:hidden divide-y">
-                    {students.map((s, i) => (
-                      <div key={s.id} className="p-4 space-y-2">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium">{s.fullName}</p>
-                            <p className="text-xs text-muted-foreground">{parseClassName(s.className)}</p>
-                          </div>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${s.gender === 'male' ? 'bg-sky-100 text-sky-700' : 'bg-pink-100 text-pink-700'}`}>
-                            {s.gender === 'male' ? t('form.male') : t('form.female')}
-                          </span>
+                {/* Mobile Cards */}
+                <div className="lg:hidden divide-y">
+                  {students.map((s, i) => (
+                    <div key={s.id} className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{s.fullName}</p>
+                          <p className="text-xs text-muted-foreground">{parseCN(s.className)}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-1 text-xs">
-                          <div><span className="text-muted-foreground">{t('form.parentPhone')}:</span> <span dir="ltr">{s.parentPhone}</span></div>
-                          <div><span className="text-muted-foreground">{t('form.parentEmail')}:</span> <span dir="ltr">{s.parentEmail}</span></div>
-                        </div>
-                        <div className="flex items-center gap-2 pt-1">
-                          <Button size="sm" variant="outline" onClick={() => openEdit(s)} className="gap-1 h-7 text-xs">
-                            <Pencil className="size-3" /> {t('form.edit')}
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleDelete(s)} className="gap-1 h-7 text-xs">
-                            <Trash2 className="size-3" /> {t('form.delete')}
-                          </Button>
-                        </div>
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${s.gender === 'male' ? 'bg-sky-100 text-sky-700' : 'bg-pink-100 text-pink-700'}`}>
+                          {s.gender === 'male' ? t('form.male') : t('form.female')}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t">
-                      <p className="text-xs text-muted-foreground">
-                        {lang === 'ar'
-                          ? `صفحة ${page} من ${totalPages} (${total} طالب)`
-                          : `Page ${page} of ${totalPages} (${total} students)`}
-                      </p>
-                      <div className="flex items-center gap-1">
-                        <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-                          {isRTL ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
-                        </Button>
-                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                          let p: number;
-                          if (totalPages <= 5) p = i + 1;
-                          else if (page <= 3) p = i + 1;
-                          else if (page >= totalPages - 2) p = totalPages - 4 + i;
-                          else p = page - 2 + i;
-                          return (
-                            <Button key={p} variant={p === page ? 'default' : 'outline'} size="icon" className="h-8 w-8" onClick={() => setPage(p)}>
-                              {p}
-                            </Button>
-                          );
-                        })}
-                        <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-                          {isRTL ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-                        </Button>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                        <div><span className="text-muted-foreground">{t('form.parentPhone')}:</span> <span dir="ltr" className="font-mono">{s.parentPhone}</span></div>
+                        <div><span className="text-muted-foreground">{t('form.parentEmail')}:</span> <span dir="ltr">{s.parentEmail}</span></div>
+                      </div>
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <Button size="sm" variant="ghost" onClick={() => setViewStudent(s)} className="gap-1 h-7 text-xs"><Eye className="size-3" /></Button>
+                        <Button size="sm" variant="outline" onClick={() => openEdit(s)} className="gap-1 h-7 text-xs"><Pencil className="size-3" /> {t('form.edit')}</Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleDelete(s)} className="gap-1 h-7 text-xs text-destructive"><Trash2 className="size-3" /></Button>
                       </div>
                     </div>
-                  )}
-                </>
-              )}
-            </CardContent>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-2.5 border-t bg-muted/30">
+                    <p className="text-xs text-muted-foreground">
+                      {lang === 'ar' ? `صفحة ${page} من ${totalPages}` : `Page ${page}/${totalPages}`}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button variant="outline" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                        {isRTL ? <ChevronLeft className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                      </Button>
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        let p: number;
+                        if (totalPages <= 5) p = i + 1;
+                        else if (page <= 3) p = i + 1;
+                        else if (page >= totalPages - 2) p = totalPages - 4 + i;
+                        else p = page - 2 + i;
+                        return (
+                          <Button key={p} variant={p === page ? 'default' : 'outline'} size="icon" className="h-7 w-7 text-xs" onClick={() => setPage(p)}>{p}</Button>
+                        );
+                      })}
+                      <Button variant="outline" size="icon" className="h-7 w-7" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                        {isRTL ? <ChevronRight className="size-3.5" /> : <ChevronLeft className="size-3.5" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </Card>
         </main>
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editStudent} onOpenChange={(open) => !open && setEditStudent(null)}>
+      {/* ── View Student Dialog ── */}
+      <Dialog open={!!viewStudent} onOpenChange={(o) => !o && setViewStudent(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{viewStudent?.fullName}</DialogTitle></DialogHeader>
+          {viewStudent && (
+            <div className="space-y-3 text-sm">
+              {[
+                [t('form.fullName'), viewStudent.fullName],
+                [t('form.grade'), parseCN(viewStudent.className)],
+                [t('form.gender'), viewStudent.gender === 'male' ? t('form.male') : t('form.female')],
+                [t('form.parentPhone'), viewStudent.parentPhone],
+                [t('form.parentEmail'), viewStudent.parentEmail],
+                [t('form.whatsapp'), viewStudent.whatsapp || '—'],
+                [lang === 'ar' ? 'حساب المستخدم' : 'User Account', viewStudent.userEmail],
+                [lang === 'ar' ? 'آخر تحديث' : 'Last Updated', new Date(viewStudent.updatedAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US')],
+              ].map(([label, value]) => (
+                <div key={label as string} className="flex justify-between py-1.5 border-b border-dashed last:border-0">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-medium" dir={['010', '011', '012', '015'].some(p => (value as string).startsWith(p)) ? 'ltr' : dir}>{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => openEdit(viewStudent!)} className="gap-1.5"><Pencil className="size-4" /> {t('form.edit')}</Button>
+            <Button variant="destructive" onClick={() => { handleDelete(viewStudent!); setViewStudent(null); }} className="gap-1.5"><Trash2 className="size-4" /> {t('form.delete')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Student Dialog ── */}
+      <Dialog open={showAdd} onOpenChange={(o) => !o && setShowAdd(false)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{lang === 'ar' ? 'تعديل بيانات الطالب' : 'Edit Student Data'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>{t('form.fullName')}</Label>
-              <Input value={editForm.fullName} onChange={(e) => setEditForm(f => ({ ...f, fullName: e.target.value }))} />
+          <DialogHeader><DialogTitle>{lang === 'ar' ? 'إضافة طالب جديد' : 'Add New Student'}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">{t('form.fullName')} *</Label>
+              <Input value={addForm.fullName} onChange={(e) => setAddForm(f => ({ ...f, fullName: e.target.value }))} placeholder={t('form.fullNamePlaceholder')} className="h-9 text-sm" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>{t('form.grade')}</Label>
-                <Select value={editGrade} onValueChange={setEditGrade}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('form.grade')} *</Label>
+                <Select value={addGrade} onValueChange={setAddGrade}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder={t('form.gradePlaceholder')} /></SelectTrigger>
                   <SelectContent>{GRADE_KEYS.map(g => <SelectItem key={g} value={g}>{t(`grades.${g}`)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>{t('form.section')}</Label>
-                <Select value={editSection} onValueChange={setEditSection}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {['1', '2', '3'].map(s => <SelectItem key={s} value={s}>{t(`sections.${s}`)}</SelectItem>)}
-                  </SelectContent>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('form.section')} *</Label>
+                <Select value={addSection} onValueChange={setAddSection}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder={t('form.sectionPlaceholder')} /></SelectTrigger>
+                  <SelectContent>{SECTION_KEYS.map(s => <SelectItem key={s} value={s}>{t(`sections.${s}`)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>{t('form.parentPhone')}</Label>
-              <Input dir="ltr" value={editForm.parentPhone} onChange={(e) => setEditForm(f => ({ ...f, parentPhone: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('form.parentEmail')}</Label>
-              <Input dir="ltr" value={editForm.parentEmail} onChange={(e) => setEditForm(f => ({ ...f, parentEmail: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('form.gender')}</Label>
-              <RadioGroup value={editForm.gender} onValueChange={(v) => setEditForm(f => ({ ...f, gender: v }))} className="flex gap-4">
-                <div className="flex items-center gap-2"><RadioGroupItem value="male" id="edit-male" /><Label htmlFor="edit-male" className="cursor-pointer font-normal">{t('form.male')}</Label></div>
-                <div className="flex items-center gap-2"><RadioGroupItem value="female" id="edit-female" /><Label htmlFor="edit-female" className="cursor-pointer font-normal">{t('form.female')}</Label></div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">{t('form.gender')} *</Label>
+              <RadioGroup value={addForm.gender} onValueChange={(v) => setAddForm(f => ({ ...f, gender: v }))} className="flex gap-4">
+                <div className="flex items-center gap-1.5"><RadioGroupItem value="male" id="add-male" /><Label htmlFor="add-male" className="cursor-pointer font-normal text-sm">{t('form.male')}</Label></div>
+                <div className="flex items-center gap-1.5"><RadioGroupItem value="female" id="add-female" /><Label htmlFor="add-female" className="cursor-pointer font-normal text-sm">{t('form.female')}</Label></div>
               </RadioGroup>
             </div>
-            <div className="space-y-2">
-              <Label>{t('form.whatsapp')} <span className="text-muted-foreground">{t('form.optional')}</span></Label>
-              <Input dir="ltr" value={editForm.whatsapp} onChange={(e) => setEditForm(f => ({ ...f, whatsapp: e.target.value }))} placeholder={t('form.whatsappPlaceholder')} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('form.parentPhone')} *</Label>
+                <Input dir="ltr" value={addForm.parentPhone} onChange={(e) => setAddForm(f => ({ ...f, parentPhone: e.target.value }))} placeholder={t('form.parentPhonePlaceholder')} className="h-9 text-sm font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('form.parentEmail')} *</Label>
+                <Input dir="ltr" value={addForm.parentEmail} onChange={(e) => setAddForm(f => ({ ...f, parentEmail: e.target.value }))} placeholder={t('form.parentEmailPlaceholder')} className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">{t('form.whatsapp')} <span className="text-muted-foreground">{t('form.optional')}</span></Label>
+              <Input dir="ltr" value={addForm.whatsapp} onChange={(e) => setAddForm(f => ({ ...f, whatsapp: e.target.value }))} placeholder={t('form.whatsappPlaceholder')} className="h-9 text-sm font-mono" />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowAdd(false)}>{t('form.cancel')}</Button>
+            <Button onClick={handleAdd} disabled={adding} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {adding ? <><Loader2 className="size-4 animate-spin" /> {lang === 'ar' ? 'جاري الإضافة...' : 'Adding...'}</> : <><CheckCircle2 className="size-4" /> {lang === 'ar' ? 'إضافة' : 'Add'}</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Student Dialog ── */}
+      <Dialog open={!!editStudent} onOpenChange={(o) => !o && setEditStudent(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{lang === 'ar' ? 'تعديل بيانات' : 'Edit'}: {editStudent?.fullName}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">{t('form.fullName')} *</Label>
+              <Input value={editForm.fullName} onChange={(e) => setEditForm(f => ({ ...f, fullName: e.target.value }))} className="h-9 text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('form.grade')} *</Label>
+                <Select value={editGrade} onValueChange={setEditGrade}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>{GRADE_KEYS.map(g => <SelectItem key={g} value={g}>{t(`grades.${g}`)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('form.section')} *</Label>
+                <Select value={editSection} onValueChange={setEditSection}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>{SECTION_KEYS.map(s => <SelectItem key={s} value={s}>{t(`sections.${s}`)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">{t('form.gender')} *</Label>
+              <RadioGroup value={editForm.gender} onValueChange={(v) => setEditForm(f => ({ ...f, gender: v }))} className="flex gap-4">
+                <div className="flex items-center gap-1.5"><RadioGroupItem value="male" id="ed-male" /><Label htmlFor="ed-male" className="cursor-pointer font-normal text-sm">{t('form.male')}</Label></div>
+                <div className="flex items-center gap-1.5"><RadioGroupItem value="female" id="ed-female" /><Label htmlFor="ed-female" className="cursor-pointer font-normal text-sm">{t('form.female')}</Label></div>
+              </RadioGroup>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('form.parentPhone')} *</Label>
+                <Input dir="ltr" value={editForm.parentPhone} onChange={(e) => setEditForm(f => ({ ...f, parentPhone: e.target.value }))} className="h-9 text-sm font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('form.parentEmail')} *</Label>
+                <Input dir="ltr" value={editForm.parentEmail} onChange={(e) => setEditForm(f => ({ ...f, parentEmail: e.target.value }))} className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">{t('form.whatsapp')} <span className="text-muted-foreground">{t('form.optional')}</span></Label>
+              <Input dir="ltr" value={editForm.whatsapp} onChange={(e) => setEditForm(f => ({ ...f, whatsapp: e.target.value }))} placeholder={t('form.whatsappPlaceholder')} className="h-9 text-sm font-mono" />
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
