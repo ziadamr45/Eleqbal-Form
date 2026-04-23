@@ -10,7 +10,7 @@ export async function PUT(request: NextRequest) {
 
     const session = await db.session.findUnique({
       where: { token: sessionCookie.value },
-      select: { userId: true },
+      select: { userId: true, expiresAt: true },
     })
     if (!session || session.expiresAt < new Date()) {
       return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 })

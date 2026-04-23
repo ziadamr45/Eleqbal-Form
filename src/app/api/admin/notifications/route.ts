@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     })
 
     // If scheduled for future, don't create recipients yet
-    if (status === 'scheduled') {
+    if (status === 'scheduled' && scheduledDate) {
       return NextResponse.json({
         success: true,
         sentTo: 0,
