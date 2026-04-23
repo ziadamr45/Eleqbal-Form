@@ -4,7 +4,7 @@ import { useLanguage } from '@/lib/i18n/context';
 
 export function Footer() {
   const { lang } = useLanguage();
-  const currentYear = new Date().getFullYear();
+  const currentYear = 2026;
 
   return (
     <footer className="mt-auto border-t py-4 text-center">
