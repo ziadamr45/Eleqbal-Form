@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Mail, ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 import {
   Card,
@@ -25,6 +25,10 @@ interface LoginFormProps {
   onLogin: (user: { id: string; email: string }) => void;
 }
 
+const OTP_STATE_KEY = 'otp_pending';
+const OTP_EMAIL_KEY = 'otp_email';
+const OTP_TIME_KEY = 'otp_time';
+
 export function LoginForm({ onLogin }: LoginFormProps) {
   const { lang, dir } = useLanguage();
   const t = getT(lang);
@@ -35,6 +39,54 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [error, setError] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
   const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
+  const [restored, setRestored] = useState(false);
+
+  // Restore OTP state from localStorage on mount
+  useEffect(() => {
+    try {
+      const pending = localStorage.getItem(OTP_STATE_KEY);
+      const savedEmail = localStorage.getItem(OTP_EMAIL_KEY);
+      const savedTime = localStorage.getItem(OTP_TIME_KEY);
+
+      if (pending === 'true' && savedEmail) {
+        setEmail(savedEmail);
+        setStep(2);
+        setFadeState('in');
+
+        // Calculate remaining time (5 min expiry)
+        if (savedTime) {
+          const elapsed = Math.floor((Date.now() - parseInt(savedTime)) / 1000);
+          const remaining = Math.max(0, 60 - elapsed);
+          setResendTimer(remaining);
+        }
+        setRestored(true);
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  // Save OTP state to localStorage when sending OTP
+  const saveOtpState = useCallback((emailValue: string) => {
+    try {
+      localStorage.setItem(OTP_STATE_KEY, 'true');
+      localStorage.setItem(OTP_EMAIL_KEY, emailValue);
+      localStorage.setItem(OTP_TIME_KEY, Date.now().toString());
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  // Clear OTP state from localStorage
+  const clearOtpState = useCallback(() => {
+    try {
+      localStorage.removeItem(OTP_STATE_KEY);
+      localStorage.removeItem(OTP_EMAIL_KEY);
+      localStorage.removeItem(OTP_TIME_KEY);
+    } catch {
+      // Ignore
+    }
+  }, []);
 
   // Resend countdown
   useEffect(() => {
@@ -79,6 +131,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
       if (res.ok) {
         setResendTimer(60);
+        saveOtpState(email);
         transitionTo(2);
       } else {
         setError(t('login.otpError'));
@@ -107,6 +160,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
       if (res.ok) {
         const data = await res.json();
+        clearOtpState(); // Clear saved state on success
         onLogin({ id: data.user.id, email: data.user.email });
       } else {
         const data = await res.json().catch(() => ({}));
@@ -132,6 +186,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
       if (res.ok) {
         setResendTimer(60);
+        saveOtpState(email);
         setOtp('');
       } else {
         setError(t('login.resendError'));
@@ -141,6 +196,13 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBack = () => {
+    setError('');
+    setOtp('');
+    clearOtpState();
+    transitionTo(1);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -226,6 +288,15 @@ export function LoginForm({ onLogin }: LoginFormProps) {
               <p className="text-sm text-muted-foreground">
                 {email}
               </p>
+
+              {/* Restored state hint */}
+              {restored && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-md px-3 py-1.5">
+                  {lang === 'ar'
+                    ? '📍 أدخل كود التحقق الذي تم إرساله إلى بريدك الإلكتروني'
+                    : '📍 Enter the verification code sent to your email'}
+                </p>
+              )}
             </div>
           )}
 
@@ -276,11 +347,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setError('');
-                    setOtp('');
-                    transitionTo(1);
-                  }}
+                  onClick={handleBack}
                   className="gap-1.5"
                 >
                   {dir === 'rtl' ? (
