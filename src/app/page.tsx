@@ -58,10 +58,9 @@ export default function HomePage() {
     checkAuth();
   }, [checkAuth]);
 
-  const handleLogin = useCallback((loggedInUser: { id: string; email: string }) => {
-    setUser(loggedInUser as UserData);
-    setStudentData(null);
-  }, []);
+  const handleLogin = useCallback(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const handleLogout = useCallback(async () => {
     try {
