@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, User, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound } from 'lucide-react';
+import { Loader2, Users, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -302,10 +302,10 @@ export default function AdminDashboard() {
   return (
     <div dir={dir} className="min-h-screen flex bg-muted/30">
       {/* Sidebar overlay */}
-      {sidebarOpen && <div className="fixed inset-0 z-50 bg-black/20 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 ${isRTL ? 'right-0' : 'left-0'} z-40 w-64 bg-card border-${isRTL ? 'l' : 'r'} transform transition-transform lg:translate-x-0 lg:static lg:z-auto ${sidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full')}`}>
+      <aside className={`fixed inset-y-0 ${isRTL ? 'right-0' : 'left-0'} z-50 w-64 bg-card border-${isRTL ? 'l' : 'r'} transform transition-transform lg:translate-x-0 lg:static lg:z-auto shadow-xl ${sidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full')}`}>
         <div className="flex flex-col h-full">
           <div className="p-4 border-b flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shrink-0"><Shield className="size-5" /></div>
@@ -317,13 +317,13 @@ export default function AdminDashboard() {
           </div>
 
           <nav className="flex-1 p-3 space-y-1">
-            <button onClick={() => setActiveTab('data')} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'data' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
+            <button onClick={() => { setActiveTab('data'); setSidebarOpen(false); }} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'data' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
               <Users className="size-4" /> {lang === 'ar' ? 'إدارة بيانات الطلاب' : 'Student Data'}
             </button>
-            <button onClick={() => setActiveTab('notif')} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'notif' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
+            <button onClick={() => { setActiveTab('notif'); setSidebarOpen(false); }} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'notif' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
               <Bell className="size-4" /> {lang === 'ar' ? 'الإشعارات' : 'Notifications'}
             </button>
-            <button onClick={() => setActiveTab('control')} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'control' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
+            <button onClick={() => { setActiveTab('control'); setSidebarOpen(false); }} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'control' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
               <Settings className="size-4" /> {lang === 'ar' ? 'التحكم' : 'Control'}
             </button>
           </nav>
