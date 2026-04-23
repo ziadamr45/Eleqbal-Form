@@ -10,8 +10,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "نظام جمع البيانات | Student Data System",
-  description: "Student data collection system for school management",
+  title: "كلية الاقبال القوميه | Al-Eqbal National College",
+  description: "نظام جمع بيانات الطلاب - كلية الاقبال القوميه",
 };
 
 export default function RootLayout({

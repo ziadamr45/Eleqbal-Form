@@ -62,11 +62,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    // Validate email format - Gmail only
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i
     if (!emailRegex.test(parentEmail.trim())) {
       return NextResponse.json(
-        { success: false, error: 'Invalid parent email format' },
+        { success: false, error: 'Must enter a valid Gmail address (example@gmail.com)' },
         { status: 400 }
       )
     }
@@ -130,12 +130,12 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Validate parent email if provided
+    // Validate parent email if provided - Gmail only
     if (parentEmail !== undefined) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i
       if (typeof parentEmail !== 'string' || !emailRegex.test(parentEmail.trim())) {
         return NextResponse.json(
-          { success: false, error: 'Invalid parent email format' },
+          { success: false, error: 'Must enter a valid Gmail address (example@gmail.com)' },
           { status: 400 }
         )
       }

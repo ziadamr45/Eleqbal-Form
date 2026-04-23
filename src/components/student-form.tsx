@@ -26,12 +26,8 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useLanguage, getT } from '@/lib/i18n/context';
 
-const GRADE_KEYS = [
-  '1-primary', '2-primary', '3-primary',
-  '4-primary', '5-primary', '6-primary',
-  '1-prep', '2-prep', '3-prep',
-  '1-sec', '2-sec', '3-sec',
-] as const;
+const GRADE_KEYS = ['1', '2', '3', '4', '5', '6'] as const;
+const SECTION_KEYS = ['1', '2', '3'] as const;
 
 interface StudentDataFromAPI {
   id: string;
@@ -61,7 +57,8 @@ function createSchema(t: (key: string) => string) {
         /^[\u0600-\u06FF\s]+$/,
         t('form.fullNameArabic')
       ),
-    className: z.string().min(1, t('form.classRequired')),
+    grade: z.string().min(1, t('form.gradeRequired')),
+    section: z.string().min(1, t('form.sectionRequired')),
     parentPhone: z
       .string()
       .min(1, t('form.parentPhoneRequired'))
@@ -69,7 +66,7 @@ function createSchema(t: (key: string) => string) {
     parentEmail: z
       .string()
       .min(1, t('form.parentEmailRequired'))
-      .email(t('form.parentEmailInvalid')),
+      .regex(/^[a-zA-Z0-9._%+-]+@gmail\.com$/i, t('form.parentEmailInvalid')),
     gender: z.string().min(1, t('form.genderRequired')),
     whatsapp: z
       .string()
@@ -98,7 +95,8 @@ export function StudentForm({ userId, existingData, onDataChange }: StudentFormP
   } = useForm<StudentFormData>({
     defaultValues: {
       fullName: '',
-      className: '',
+      grade: '',
+      section: '',
       parentPhone: '',
       parentEmail: '',
       gender: '',
@@ -107,11 +105,14 @@ export function StudentForm({ userId, existingData, onDataChange }: StudentFormP
   });
 
   // Auto-fill when existingData changes
+  // className stored as "1/1" format (grade/section)
   useEffect(() => {
     if (existingData) {
+      const [grade, section] = (existingData.className || '/').split('/');
       reset({
         fullName: existingData.fullName || '',
-        className: existingData.className || '',
+        grade: grade || '',
+        section: section || '',
         parentPhone: existingData.parentPhone || '',
         parentEmail: existingData.parentEmail || '',
         gender: existingData.gender || '',
@@ -121,14 +122,15 @@ export function StudentForm({ userId, existingData, onDataChange }: StudentFormP
   }, [existingData, reset]);
 
   const watchedGender = useWatch({ control, name: 'gender' });
-  const watchedGrade = useWatch({ control, name: 'className' });
+  const watchedGrade = useWatch({ control, name: 'grade' });
+  const watchedSection = useWatch({ control, name: 'section' });
 
   const onSubmit = async (data: StudentFormData) => {
     try {
       const method = existingData ? 'PUT' : 'POST';
       const body = {
         fullName: data.fullName,
-        className: data.className,
+        className: `${data.grade}/${data.section}`,
         parentPhone: data.parentPhone,
         parentEmail: data.parentEmail,
         gender: data.gender,
@@ -190,30 +192,59 @@ export function StudentForm({ userId, existingData, onDataChange }: StudentFormP
               )}
             </div>
 
-            {/* Class / Grade */}
-            <div className="space-y-2">
-              <Label>
-                {t('form.className')}
-                <span className="text-destructive me-1">*</span>
-              </Label>
-              <Select
-                value={watchedGrade}
-                onValueChange={(value) => setValue('className', value, { shouldValidate: true })}
-              >
-                <SelectTrigger className="h-11 w-full">
-                  <SelectValue placeholder={t('form.classPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent className="max-h-64 overflow-y-auto">
-                  {GRADE_KEYS.map((gradeKey) => (
-                    <SelectItem key={gradeKey} value={gradeKey}>
-                      {t(`grades.${gradeKey}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.className && (
-                <p className="text-sm text-destructive">{errors.className.message}</p>
-              )}
+            {/* Grade & Section - Two dropdowns side by side */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Grade (الصف) */}
+              <div className="space-y-2">
+                <Label>
+                  {t('form.grade')}
+                  <span className="text-destructive me-1">*</span>
+                </Label>
+                <Select
+                  value={watchedGrade}
+                  onValueChange={(value) => setValue('grade', value, { shouldValidate: true })}
+                >
+                  <SelectTrigger className="h-11 w-full">
+                    <SelectValue placeholder={t('form.gradePlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64 overflow-y-auto">
+                    {GRADE_KEYS.map((gradeKey) => (
+                      <SelectItem key={gradeKey} value={gradeKey}>
+                        {t(`grades.${gradeKey}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.grade && (
+                  <p className="text-sm text-destructive">{errors.grade.message}</p>
+                )}
+              </div>
+
+              {/* Section (الفصل) */}
+              <div className="space-y-2">
+                <Label>
+                  {t('form.section')}
+                  <span className="text-destructive me-1">*</span>
+                </Label>
+                <Select
+                  value={watchedSection}
+                  onValueChange={(value) => setValue('section', value, { shouldValidate: true })}
+                >
+                  <SelectTrigger className="h-11 w-full">
+                    <SelectValue placeholder={t('form.sectionPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64 overflow-y-auto">
+                    {SECTION_KEYS.map((sectionKey) => (
+                      <SelectItem key={sectionKey} value={sectionKey}>
+                        {t(`sections.${sectionKey}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.section && (
+                  <p className="text-sm text-destructive">{errors.section.message}</p>
+                )}
+              </div>
             </div>
 
             {/* Phone & Email Grid */}
@@ -249,6 +280,10 @@ export function StudentForm({ userId, existingData, onDataChange }: StudentFormP
                   className="h-11 text-left"
                   {...register('parentEmail')}
                 />
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <svg className="size-3 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  {t('form.parentEmailGmailOnly')}
+                </p>
                 {errors.parentEmail && (
                   <p className="text-sm text-destructive">{errors.parentEmail.message}</p>
                 )}
