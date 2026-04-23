@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf'
-
 export interface StudentRecord {
   id: string
   fullName: string
@@ -14,11 +12,14 @@ export interface StudentRecord {
   updatedAt: string
 }
 
+// Re-export for convenience
+export type { StudentRecord }
+
 // Font cache to avoid re-fetching
 let fontLoaded = false
 let fontPromise: Promise<void> | null = null
 
-async function loadArabicFont(doc: jsPDF): Promise<void> {
+async function loadArabicFont(doc: { addFileToVFS: (n: string, c: string) => void; addFont: (n: string, f: string, s: string) => void }): Promise<void> {
   if (fontLoaded) return
   if (fontPromise) return fontPromise
 
@@ -69,6 +70,9 @@ function reverseText(text: string): string {
 }
 
 export async function generateStudentPDF(student: StudentRecord, lang: string): Promise<Blob> {
+  // Dynamic import to avoid SSR issues in Next.js
+  const { default: jsPDF } = await import('jspdf')
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
   // Load Arabic font
@@ -193,6 +197,9 @@ export async function generateStudentPDF(student: StudentRecord, lang: string): 
 }
 
 export async function generateBulkStudentPDF(students: StudentRecord[], lang: string): Promise<Blob> {
+  // Dynamic import to avoid SSR issues in Next.js
+  const { default: jsPDF } = await import('jspdf')
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
   await loadArabicFont(doc)

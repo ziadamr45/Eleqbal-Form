@@ -1,7 +1,5 @@
 import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import type { StudentRecord } from './pdf'
+import type { StudentRecord } from '@/lib/pdf'
 
 // ─────────────────────────────────────────────
 // SHARED HELPERS
@@ -182,6 +180,7 @@ export function exportToJson(
 
 // ─────────────────────────────────────────────
 // PDF EXPORT (with Cairo font + autotable)
+// Dynamic imports to avoid SSR issues in Next.js
 // ─────────────────────────────────────────────
 
 let pdfFontLoaded = false
@@ -189,7 +188,7 @@ let pdfFontPromise: Promise<boolean> | null = null
 
 const PDF_FONT = { name: 'helvetica', loaded: false }
 
-async function loadCairoFont(doc: jsPDF): Promise<void> {
+async function loadCairoFont(doc: { addFileToVFS: (n: string, c: string) => void; addFont: (n: string, f: string, s: string) => void }): Promise<void> {
   if (pdfFontLoaded) return
   if (pdfFontPromise) {
     const ok = await pdfFontPromise
@@ -250,15 +249,10 @@ async function loadCairoFont(doc: jsPDF): Promise<void> {
 
 /**
  * Reverse Arabic text for jsPDF rendering (jsPDF doesn't support RTL natively).
- * This works because Cairo is a well-designed Arabic font where reversed characters
- * still connect properly via OpenType features.
  */
 function reverseArabic(text: string): string {
-  // Detect if text has Arabic characters
   if (!/[\u0600-\u06FF]/.test(text)) return text
 
-  // For pure Arabic text, reverse character order
-  // Handle mixed Arabic/Latin by detecting blocks
   const parts: string[] = []
   let current = ''
   let isArabicBlock = /[\u0600-\u06FF]/.test(text[0] || '')
@@ -275,7 +269,6 @@ function reverseArabic(text: string): string {
   }
   parts.push(current)
 
-  // Reverse Arabic parts, keep Latin as-is
   const reversed = parts.map((part) => {
     return /[\u0600-\u06FF]/.test(part) ? part.split('').reverse().join('') : part
   })
@@ -289,6 +282,11 @@ export async function exportToPdf(
   gradeLabels: Record<string, string>,
   sectionLabels: Record<string, string>,
 ): Promise<Blob> {
+  // Dynamic import to avoid SSR issues
+  const { default: jsPDF } = await import('jspdf')
+  const autoTableMod = await import('jspdf-autotable')
+  const autoTable = (autoTableMod as { default: (doc: unknown, options: unknown) => void }).default
+
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -314,7 +312,7 @@ export async function exportToPdf(
   const dateLabel = isArabic ? 'تاريخ التصدير: ' : 'Export Date: '
 
   // ── Header Band ──
-  doc.setFillColor(5, 150, 105) // emerald-600
+  doc.setFillColor(5, 150, 105)
   doc.rect(0, 0, pageWidth, 22, 'F')
 
   doc.setFont(PDF_FONT.name, 'bold')
@@ -387,15 +385,15 @@ export async function exportToPdf(
       fillColor: [240, 253, 244],
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 12 }, // #
+      0: { halign: 'center', cellWidth: 12 },
       ...(isArabic
         ? {
-            1: { halign: 'right', cellWidth: 35 }, // Name
-            2: { halign: 'right', cellWidth: 28 }, // Class
-            3: { halign: 'center', cellWidth: 25 }, // Phone
-            4: { halign: 'left', cellWidth: 40 }, // Email
-            5: { halign: 'right', cellWidth: 15 }, // Gender
-            6: { halign: 'center', cellWidth: 25 }, // WhatsApp
+            1: { halign: 'right', cellWidth: 35 },
+            2: { halign: 'right', cellWidth: 28 },
+            3: { halign: 'center', cellWidth: 25 },
+            4: { halign: 'left', cellWidth: 40 },
+            5: { halign: 'right', cellWidth: 15 },
+            6: { halign: 'center', cellWidth: 25 },
           }
         : {
             1: { halign: 'left', cellWidth: 35 },
@@ -406,8 +404,7 @@ export async function exportToPdf(
             6: { halign: 'center', cellWidth: 25 },
           }),
     },
-    didDrawPage: (data) => {
-      // Footer on each page
+    didDrawPage: (data: { pageNumber: number }) => {
       doc.setDrawColor(220, 220, 220)
       doc.setLineWidth(0.3)
       doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10)
@@ -439,6 +436,11 @@ export async function exportSingleStudentPdf(
   gradeLabels: Record<string, string>,
   sectionLabels: Record<string, string>,
 ): Promise<Blob> {
+  // Dynamic import to avoid SSR issues
+  const { default: jsPDF } = await import('jspdf')
+  const autoTableMod = await import('jspdf-autotable')
+  const autoTable = (autoTableMod as { default: (doc: unknown, options: unknown) => void }).default
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -540,8 +542,7 @@ export async function exportSingleStudentPdf(
     alternateRowStyles: {
       fillColor: [248, 249, 251],
     },
-    didParseCell: (data) => {
-      // Only apply alternateRowStyles to column 1
+    didParseCell: (data: { section: string; column: { index: number }; cell: { styles: { fillColor: number[] } } }) => {
       if (data.section === 'body' && data.column.index === 0) {
         data.cell.styles.fillColor = [240, 253, 244]
       }
