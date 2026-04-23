@@ -119,6 +119,15 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    await db.adminNotification.create({
+      data: {
+        type: 'new_student',
+        title: 'تسجيل طالب جديد / New student registered',
+        message: `تم تسجيل الطالب: ${fullName} - ${className}`,
+        metadata: { studentId: student.id, fullName, className },
+      },
+    })
+
     return NextResponse.json({ success: true, student })
   } catch (error) {
     console.error('Admin create student error:', error)

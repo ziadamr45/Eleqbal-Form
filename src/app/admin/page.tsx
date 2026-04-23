@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound, Clock, Zap } from 'lucide-react';
+import { Loader2, Users, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound, Clock, Zap, FileText } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,11 +14,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
-interface StudentRecord {
-  id: string; fullName: string; className: string; parentPhone: string;
-  parentEmail: string; gender: string; whatsapp: string | null;
-  userEmail: string; userName: string | null; createdAt: string; updatedAt: string;
-}
+import ChartsSection from '@/components/admin/ChartsSection';
+import ActivityFeed from '@/components/admin/ActivityFeed';
+import SystemStatus from '@/components/admin/SystemStatus';
+import AdminNotificationBell from '@/components/admin/AdminNotificationBell';
+import SkeletonTable from '@/components/admin/SkeletonTable';
+import { generateStudentPDF } from '@/lib/pdf';
+import type { StudentRecord } from '@/lib/pdf';
 
 interface Stats { totalStudents: number; totalUsers: number; maleCount: number; femaleCount: number; studentsByClass: { className: string; count: number }[] }
 
@@ -27,6 +29,20 @@ const SECTION_KEYS = ['1', '2', '3'] as const;
 const PAGE_SIZE = 50;
 
 const emptyForm = { fullName: '', parentPhone: '', parentEmail: '', gender: '', whatsapp: '', parentName: '' };
+
+// ── Highlight Match Helper ──
+function highlightMatch(text: string, query: string) {
+  if (!query.trim()) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-yellow-200 dark:bg-yellow-700/50 rounded px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -168,6 +184,21 @@ export default function AdminDashboard() {
   const parseCN = (cn: string) => { const [g, s] = (cn || '/').split('/'); return `${t(`grades.${g}`)} - ${t(`sections.${s}`)}`; };
   const cn = (g: string, s: string) => `${g}/${s}`;
   const refresh = () => { fetchStudents(); fetchStats(); };
+
+  // ── PDF Download ──
+  const downloadSinglePdf = (student: StudentRecord) => {
+    try {
+      const blob = generateStudentPDF(student, lang);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${student.fullName.replace(/\s+/g, '_')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success(t('admin.downloadPdf'));
+    } catch {
+      toast.error(lang === 'ar' ? 'خطأ في إنشاء PDF' : 'Error generating PDF');
+    }
+  };
 
   // ── Send Notification ──
   const handleSendNotif = async () => {
@@ -356,6 +387,7 @@ export default function AdminDashboard() {
             {activeTab === 'control' && (lang === 'ar' ? 'التحكم' : 'Control')}
           </h1>
           <div className="ml-auto flex items-center gap-2">
+            <AdminNotificationBell />
             <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
               {stats?.totalStudents || 0} {lang === 'ar' ? 'طالب' : 'students'}
             </span>
@@ -366,6 +398,12 @@ export default function AdminDashboard() {
           {/* Control Tab Content */}
           {activeTab === 'control' && (
             <div className="space-y-4">
+              {/* System Status Panel */}
+              <SystemStatus stats={stats} lang={lang} t={t} />
+
+              {/* Recent Activity Feed */}
+              <ActivityFeed lang={lang} t={t} parseCN={parseCN} />
+
               {/* System Overview */}
               <Card className="shadow-sm">
                 <CardHeader className="pb-3">
@@ -523,6 +561,11 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* Charts Section */}
+          {stats && stats.studentsByClass.length > 0 && (
+            <ChartsSection stats={stats} lang={lang} t={t} parseCN={parseCN} />
+          )}
+
           {/* Class Quick Filter Chips */}
           {stats && stats.studentsByClass.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -637,14 +680,17 @@ export default function AdminDashboard() {
               <Button variant="outline" size="sm" onClick={() => doExport('excel')} className="gap-1 h-7 text-xs">
                 <FileSpreadsheet className="size-3" /> Excel
               </Button>
+              <Button variant="outline" size="sm" onClick={() => doExport('csv')} className="gap-1 h-7 text-xs">
+                <FileText className="size-3" /> {t('admin.pdf')}
+              </Button>
             </div>
           </div>
 
-          {/* Data Table */}
-          <Card className="shadow-sm overflow-hidden">
-            {loading ? (
-              <div className="flex items-center justify-center py-20"><Loader2 className="size-6 animate-spin text-emerald-600" /></div>
-            ) : students.length === 0 ? (
+          {/* Data Table - with Skeleton Loader */}
+          {loading ? (
+            <SkeletonTable rows={6} />
+          ) : students.length === 0 ? (
+            <Card className="shadow-sm overflow-hidden">
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                 <Users className="size-10 mb-3 opacity-20" />
                 <p className="text-sm">{lang === 'ar' ? 'لا توجد بيانات' : 'No data'}</p>
@@ -652,7 +698,9 @@ export default function AdminDashboard() {
                   <Plus className="size-3.5" /> {lang === 'ar' ? 'إضافة طالب جديد' : 'Add new student'}
                 </Button>
               </div>
-            ) : (
+            </Card>
+          ) : (
+          <Card className="shadow-sm overflow-hidden">
               <>
                 {/* Desktop Table */}
                 <div className="hidden lg:block overflow-x-auto">
@@ -673,15 +721,15 @@ export default function AdminDashboard() {
                       {students.map((s, i) => (
                         <tr key={s.id} className="border-b last:border-0 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10 transition-colors">
                           <td className="px-3 py-2.5 text-muted-foreground text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
-                          <td className="px-3 py-2.5 font-medium">{s.fullName}</td>
+                          <td className="px-3 py-2.5 font-medium">{highlightMatch(s.fullName, search)}</td>
                           <td className="px-3 py-2.5 text-xs">{parseCN(s.className)}</td>
                           <td className="px-3 py-2.5">
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.gender === 'male' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'}`}>
                               {s.gender === 'male' ? t('form.male') : t('form.female')}
                             </span>
                           </td>
-                          <td className="px-3 py-2.5 text-xs font-mono" dir="ltr">{s.parentPhone}</td>
-                          <td className="px-3 py-2.5 text-xs" dir="ltr">{s.parentEmail}</td>
+                          <td className="px-3 py-2.5 text-xs font-mono" dir="ltr">{highlightMatch(s.parentPhone, search)}</td>
+                          <td className="px-3 py-2.5 text-xs" dir="ltr">{highlightMatch(s.parentEmail, search)}</td>
                           <td className="px-3 py-2.5 text-xs font-mono" dir="ltr">{s.whatsapp || '—'}</td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center justify-center gap-0.5">
@@ -708,7 +756,7 @@ export default function AdminDashboard() {
                     <div key={s.id} className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{s.fullName}</p>
+                          <p className="font-medium text-sm truncate">{highlightMatch(s.fullName, search)}</p>
                           <p className="text-xs text-muted-foreground">{parseCN(s.className)}</p>
                         </div>
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${s.gender === 'male' ? 'bg-sky-100 text-sky-700' : 'bg-pink-100 text-pink-700'}`}>
@@ -716,8 +764,8 @@ export default function AdminDashboard() {
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-                        <div><span className="text-muted-foreground">{t('form.parentPhone')}:</span> <span dir="ltr" className="font-mono">{s.parentPhone}</span></div>
-                        <div><span className="text-muted-foreground">{t('form.parentEmail')}:</span> <span dir="ltr">{s.parentEmail}</span></div>
+                        <div><span className="text-muted-foreground">{t('form.parentPhone')}:</span> <span dir="ltr" className="font-mono">{highlightMatch(s.parentPhone, search)}</span></div>
+                        <div><span className="text-muted-foreground">{t('form.parentEmail')}:</span> <span dir="ltr">{highlightMatch(s.parentEmail, search)}</span></div>
                       </div>
                       <div className="flex items-center gap-1.5 pt-1">
                         <Button size="sm" variant="ghost" onClick={() => setViewStudent(s)} className="gap-1 h-7 text-xs"><Eye className="size-3" /></Button>
@@ -755,8 +803,8 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </>
-            )}
           </Card>
+          )}
             </>
           )}
         </main>
@@ -852,6 +900,9 @@ export default function AdminDashboard() {
             </div>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => downloadSinglePdf(viewStudent!)} className="gap-1.5">
+              <FileText className="size-4" /> {t('admin.downloadPdf')}
+            </Button>
             <Button variant="outline" onClick={() => openEdit(viewStudent!)} className="gap-1.5"><Pencil className="size-4" /> {t('form.edit')}</Button>
             <Button variant="destructive" onClick={() => { handleDelete(viewStudent!); setViewStudent(null); }} className="gap-1.5"><Trash2 className="size-4" /> {t('form.delete')}</Button>
           </DialogFooter>

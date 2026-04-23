@@ -92,3 +92,13 @@ model PushSubscription {
   createdAt     DateTime @default(now())
   @@unique([userId, endpoint])
 }
+
+model AdminNotification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+}

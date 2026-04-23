@@ -55,3 +55,40 @@ Stage Summary:
 - Language toggle uses globe icon
 - Mobile sidebar overlay is lighter (no brightness dim issue)
 - All changes pass ESLint with zero errors
+
+---
+Task ID: 3
+Agent: Main Orchestrator
+Task: Admin Dashboard Feature Enhancements - Charts, Activity Feed, System Status, Notifications, PDF, Search Highlighting, Skeleton Loaders
+
+Work Log:
+- Added AdminNotification model to Prisma schema (id, type, title, message, isRead, metadata, createdAt)
+- Pushed schema to Neon database successfully
+- Added `admin` translation section for both AR and EN (25+ new keys)
+- Created API endpoint: GET /api/admin/activity - returns latest 15 student records sorted by updatedAt desc
+- Created API endpoint: GET /api/admin/push-stats - returns count of PushSubscription records
+- Created API endpoint: GET/PUT /api/admin/admin-notifications - list, mark-read, mark-all-read
+- Modified POST /api/admin/students to create AdminNotification on new student registration
+- Modified PUT /api/admin/students/[id] to create AdminNotification on student data update
+- Created /src/lib/pdf.ts - generateStudentPDF() using jspdf with header, fields, footer
+- Extracted ChartsSection component (BarChart + PieChart using Recharts)
+- Extracted ActivityFeed component (recent activity with relative time, action icons)
+- Extracted SystemStatus component (online indicator, stats, push count, auto-updating clock)
+- Extracted AdminNotificationBell component (dropdown panel, unread badge, mark all read)
+- Extracted SkeletonTable component (6 rows mimicking table layout with animate-pulse)
+- Added highlightMatch() helper for search term highlighting with yellow background
+- Integrated all components into admin page.tsx (rewrote as single comprehensive file)
+- Added PDF button in export bar and in view student dialog
+- Added search highlighting in desktop table (name, phone, email) and mobile cards
+- Replaced Loader2 spinner with SkeletonTable during loading state
+- All changes pass ESLint with zero errors
+
+Stage Summary:
+- Charts: Bar chart (students per class, emerald) + Pie chart (gender distribution, sky/pink)
+- Recent Activity: 15 latest student records with icons and relative time
+- System Status: Online indicator, student/user counts, auto-updating clock, push subscription count
+- Admin Notifications: Bell icon in top bar with dropdown, unread badge, mark-all-read
+- PDF: Download single student PDF from view dialog, uses jspdf
+- Search Highlighting: Yellow mark on matching text in student names, phones, emails
+- Skeleton Loaders: 6-row skeleton replacing spinner during data loading
+- All extracted components in /src/components/admin/ for maintainability

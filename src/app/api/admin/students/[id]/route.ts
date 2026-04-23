@@ -28,6 +28,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       },
     })
 
+    await db.adminNotification.create({
+      data: {
+        type: 'student_update',
+        title: 'تحديث بيانات طالب / Student data updated',
+        message: `تم تحديث بيانات الطالب: ${updated.fullName} - ${updated.className}`,
+        metadata: { studentId: updated.id, fullName: updated.fullName, className: updated.className },
+      },
+    })
+
     return NextResponse.json({ success: true, student: updated })
   } catch (error) {
     console.error('Admin student update error:', error)

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Globe, LogOut, Shield, TriangleAlert } from 'lucide-react';
+import { Sun, Moon, Globe, LogOut, Shield, TriangleAlert, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useLanguage } from '@/lib/i18n/context';
@@ -28,9 +28,24 @@ export function Header({ isLoggedIn, isAdmin, onLogout }: HeaderProps) {
   // Use resolvedTheme to get actual "dark" or "light" (not "system")
   const isDark = resolvedTheme === 'dark';
 
-  const toggleTheme = () => {
-    setTheme(isDark ? 'light' : 'dark');
+  const cycleTheme = () => {
+    const themes = ['light', 'dark', 'system'] as const;
+    const currentIdx = themes.indexOf(theme as 'light' | 'dark' | 'system');
+    const next = themes[(currentIdx + 1) % 3];
+    setTheme(next);
   };
+
+  const themeIcon = theme === 'system'
+    ? <Monitor className="size-4" />
+    : isDark
+      ? <Moon className="size-4" />
+      : <Sun className="size-4" />;
+
+  const themeTitle = theme === 'system'
+    ? (lang === 'ar' ? 'تلقائي' : 'Auto')
+    : isDark
+      ? (typeof t === 'string' ? '' : t.lightMode)
+      : (typeof t === 'string' ? '' : t.darkMode);
 
   const toggleLanguage = () => {
     setLang(lang === 'ar' ? 'en' : 'ar');
@@ -77,22 +92,16 @@ export function Header({ isLoggedIn, isAdmin, onLogout }: HeaderProps) {
               </span>
             </Button>
 
-            {/* Theme Toggle */}
+            {/* Theme Toggle - cycles light → dark → system */}
             {mounted && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleTheme}
+                onClick={cycleTheme}
                 className="gap-1.5 text-sm font-medium"
-                title={isDark
-                  ? (typeof t === 'string' ? '' : t.lightMode)
-                  : (typeof t === 'string' ? '' : t.darkMode)}
+                title={themeTitle}
               >
-                {isDark ? (
-                  <Sun className="size-4" />
-                ) : (
-                  <Moon className="size-4" />
-                )}
+                {themeIcon}
               </Button>
             )}
 

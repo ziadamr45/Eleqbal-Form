@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, GraduationCap, User, Pencil, Trash2, Plus, AlertTriangle, Bell, X, Check, Megaphone } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, GraduationCap, User, Pencil, Trash2, Plus, AlertTriangle, Bell, X, Check, Megaphone, Hand } from 'lucide-react';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { LoginForm } from '@/components/login-form';
@@ -10,6 +11,7 @@ import { NotificationPrompt } from '@/components/notification-prompt';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 interface StudentData {
@@ -26,6 +28,17 @@ interface NotificationItem {
   id: string; title: string; message: string; isRead: boolean;
   sentToAll: boolean; createdAt: string; adminName: string | null;
 }
+
+const fadeUp = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+  transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+};
+
+const stagger = {
+  animate: { transition: { staggerChildren: 0.08 } },
+};
 
 export default function HomePage() {
   const [user, setUser] = useState<UserData | null>(null);
@@ -92,7 +105,7 @@ export default function HomePage() {
     if (user) fetchNotifications();
     const interval = setInterval(() => {
       if (user) fetchNotifications();
-    }, 30000); // Refresh every 30 seconds
+    }, 30000);
     return () => clearInterval(interval);
   }, [user, fetchNotifications]);
 
@@ -114,27 +127,18 @@ export default function HomePage() {
     if (!vapidKey) return;
 
     try {
-      // Register service worker
       const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-
-      // Check existing subscription
       const existingSub = await registration.pushManager.getSubscription();
-      if (existingSub) {
-        setPushEnabled(true);
-        return;
-      }
+      if (existingSub) { setPushEnabled(true); return; }
 
-      // Request notification permission
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') return;
 
-      // Subscribe to push
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
 
-      // Send subscription to server
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -147,12 +151,10 @@ export default function HomePage() {
     }
   }, []);
 
-  // Register push when user logs in as student
   useEffect(() => {
     if (user?.role === 'student') registerPush();
   }, [user, registerPush]);
 
-  // Helper: convert VAPID key to Uint8Array
   const urlBase64ToUint8Array = (base64String: string) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -184,15 +186,25 @@ export default function HomePage() {
     return `${t(`grades.${parts[0] || '1'}`)} - ${t(`sections.${parts[1] || '1'}`)}`;
   };
 
-  // ─── Loading ───
+  // Personalized greeting based on time of day
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return lang === 'ar' ? 'صباح الخير' : 'Good morning';
+    if (hour < 17) return lang === 'ar' ? 'مساء الخير' : 'Good afternoon';
+    return lang === 'ar' ? 'مساء الخير' : 'Good evening';
+  }, [lang]);
+
+  // ─── Loading Skeleton ───
   if (loading) {
     return (
       <div dir={dir} className="min-h-screen flex flex-col bg-background">
         <Header isLoggedIn={false} onLogout={handleLogout} />
         <main className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="size-8 animate-spin text-emerald-600" />
-            <p className="text-muted-foreground">{t('loading')}</p>
+          <div className="w-full max-w-md mx-auto px-4 space-y-4">
+            <Skeleton className="h-8 w-48 mx-auto" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-60 w-full rounded-xl" />
+            <Skeleton className="h-4 w-32 mx-auto" />
           </div>
         </main>
         <Footer />
@@ -206,7 +218,13 @@ export default function HomePage() {
       <div dir={dir} className="min-h-screen flex flex-col bg-background">
         <Header isLoggedIn={false} onLogout={handleLogout} />
         <main className="flex-1 flex items-center justify-center py-8 px-4">
-          <LoginForm onLogin={handleLogin} />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+          >
+            <LoginForm onLogin={handleLogin} />
+          </motion.div>
         </main>
         <Footer />
       </div>
@@ -221,170 +239,237 @@ export default function HomePage() {
       {/* Notification Bell (floating for students) */}
       {user.role === 'student' && (
         <div ref={notifRef} className="fixed top-16 right-3 z-50 sm:right-4">
-          {/* Bell Button */}
-          <button onClick={() => setNotifOpen(!notifOpen)}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setNotifOpen(!notifOpen)}
             className="relative flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-all duration-200 active:scale-95 hover:shadow-xl"
             style={{ background: 'rgba(5,150,105,0.9)', backdropFilter: 'blur(8px)' }}>
             <Bell className="size-5 text-white" />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-background">
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                className="absolute -top-0.5 -right-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-background"
+              >
                 {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
+              </motion.span>
             )}
-          </button>
+          </motion.button>
 
-          {/* Notification Panel */}
-          {notifOpen && (
-            <div className={`absolute ${isRTL(dir) ? 'left-0' : 'right-0'} top-12 mt-1 w-80 sm:w-96 max-h-[70vh] rounded-xl bg-card border shadow-xl overflow-hidden z-50`}>
-              <div className="flex items-center justify-between p-3 border-b bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <Bell className="size-4 text-emerald-600" />
-                  <span className="font-semibold text-sm">{lang === 'ar' ? 'الإشعارات' : 'Notifications'}</span>
-                  {unreadCount > 0 && (
-                    <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">{unreadCount}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {unreadCount > 0 && (
-                    <button onClick={markAllRead} className="text-xs text-emerald-600 hover:underline">
-                      {lang === 'ar' ? 'قراءة الكل' : 'Read all'}
-                    </button>
-                  )}
-                  <button onClick={() => setNotifOpen(false)} className="p-1 rounded-md hover:bg-muted">
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-y-auto max-h-[60vh]">
-                {notifications.length === 0 ? (
-                  <div className="flex flex-col items-center py-10 text-muted-foreground">
-                    <Bell className="size-8 opacity-20 mb-2" />
-                    <p className="text-sm">{lang === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}</p>
+          <AnimatePresence>
+            {notifOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className={`absolute ${isRTL(dir) ? 'left-0' : 'right-0'} top-12 mt-1 w-80 sm:w-96 max-h-[70vh] rounded-xl bg-card border shadow-xl overflow-hidden z-50`}
+              >
+                <div className="flex items-center justify-between p-3 border-b bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Bell className="size-4 text-emerald-600" />
+                    <span className="font-semibold text-sm">{lang === 'ar' ? 'الإشعارات' : 'Notifications'}</span>
+                    {unreadCount > 0 && (
+                      <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+                    )}
                   </div>
-                ) : (
-                  notifications.map(n => (
-                    <button key={n.id} onClick={() => { if (!n.isRead) markRead(n.id); }}
-                      className={`w-full text-start p-3 border-b last:border-0 transition-colors hover:bg-muted/50 ${!n.isRead ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : ''}`}>
-                      <div className="flex items-start gap-2">
-                        {!n.isRead && <div className="mt-1.5 h-2 w-2 rounded-full bg-emerald-500 shrink-0" />}
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm ${!n.isRead ? 'font-semibold' : 'font-medium'}`}>{n.title}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            {new Date(n.createdAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                      </div>
+                  <div className="flex items-center gap-1">
+                    {unreadCount > 0 && (
+                      <button onClick={markAllRead} className="text-xs text-emerald-600 hover:underline">
+                        {lang === 'ar' ? 'قراءة الكل' : 'Read all'}
+                      </button>
+                    )}
+                    <button onClick={() => setNotifOpen(false)} className="p-1 rounded-md hover:bg-muted">
+                      <X className="size-3.5" />
                     </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+                  </div>
+                </div>
+                <div className="overflow-y-auto max-h-[60vh]">
+                  {notifications.length === 0 ? (
+                    <div className="flex flex-col items-center py-10 text-muted-foreground">
+                      <Bell className="size-8 opacity-20 mb-2" />
+                      <p className="text-sm">{lang === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}</p>
+                    </div>
+                  ) : (
+                    <AnimatePresence>
+                      {notifications.map((n, idx) => (
+                        <motion.button
+                          key={n.id}
+                          initial={{ opacity: 0, x: dir === 'rtl' ? 10 : -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.03 }}
+                          onClick={() => { if (!n.isRead) markRead(n.id); }}
+                          className={`w-full text-start p-3 border-b last:border-0 transition-colors hover:bg-muted/50 ${!n.isRead ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : ''}`}>
+                          <div className="flex items-start gap-2">
+                            {!n.isRead && <div className="mt-1.5 h-2 w-2 rounded-full bg-emerald-500 shrink-0" />}
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm ${!n.isRead ? 'font-semibold' : 'font-medium'}`}>{n.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {new Date(n.createdAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        </motion.button>
+                      ))}
+                    </AnimatePresence>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
       <main className="flex-1 py-8 px-4">
-        <div className="flex flex-col items-center gap-6">
-          {/* Welcome Banner */}
-          <div className="w-full max-w-2xl mx-auto px-4">
-            <div className="flex items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-4">
-              <GraduationCap className="size-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-                  {lang === 'ar' ? `أهلاً${user.name ? ` ${user.name}` : ''}!` : `Welcome${user.name ? ` ${user.name}` : ''}!`}
+        <motion.div
+          className="flex flex-col items-center gap-6"
+          variants={stagger}
+          initial="initial"
+          animate="animate"
+        >
+          {/* Welcome Banner - Personalized */}
+          <motion.div {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
+            <div className="flex items-center gap-3 rounded-xl bg-gradient-to-l from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-600 text-white shrink-0 shadow-md">
+                <Hand className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100 truncate">
+                  {greeting}{user.name ? ` ${user.name}` : ''} 👋
                 </p>
-                <p className="text-sm text-emerald-700 dark:text-emerald-300">{user.email}</p>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300 truncate">{user.email}</p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Unread notifications banner */}
           {unreadCount > 0 && (
-            <div className="w-full max-w-2xl mx-auto px-4">
-              <button onClick={() => setNotifOpen(true)}
-                className="flex items-center gap-3 w-full rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-start hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors">
+            <motion.div {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={() => setNotifOpen(true)}
+                className="flex items-center gap-3 w-full rounded-xl bg-gradient-to-l from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 text-start hover:from-amber-100 hover:to-amber-50 dark:hover:from-amber-950/50 dark:hover:to-amber-900/30 transition-all"
+              >
                 <Megaphone className="size-5 text-amber-600 shrink-0" />
                 <p className="text-sm text-amber-800 dark:text-amber-200">
                   {lang === 'ar'
                     ? `لديك ${unreadCount} إشعار${unreadCount > 2 ? 'ات جديدة' : unreadCount > 1 ? ' إشعار جديد' : ' جديد'}`
                     : `You have ${unreadCount} new notification${unreadCount > 1 ? 's' : ''}`}
                 </p>
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           )}
 
           {/* Student Data Card */}
-          {studentData && !editing && (
-            <div className="w-full max-w-2xl mx-auto px-4">
-              <Card className="shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-6 pb-4 border-b">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                      <User className="size-6 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold">{studentData.fullName}</h2>
-                      <p className="text-sm text-muted-foreground">{parseClassName(studentData.className)}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    {[
-                      [t('form.fullName'), studentData.fullName],
-                      [`${t('form.grade')} / ${t('form.section')}`, parseClassName(studentData.className)],
-                      [t('form.gender'), studentData.gender === 'male' ? t('form.male') : t('form.female')],
-                      [t('form.parentPhone'), studentData.parentPhone],
-                      [t('form.parentEmail'), studentData.parentEmail],
-                      [`${t('form.whatsapp')} ${t('form.optional')}`, studentData.whatsapp || '—'],
-                    ].map(([label, value]) => (
-                      <div key={label as string} className="flex items-center justify-between py-2 border-b border-dashed last:border-0">
-                        <span className="text-sm font-medium text-muted-foreground">{label}</span>
-                        <span className="text-sm font-semibold" dir={['010', '011', '012', '015'].some(p => (value as string).startsWith(p)) ? 'ltr' : dir}>{value}</span>
+          <AnimatePresence mode="wait">
+            {studentData && !editing && (
+              <motion.div
+                key="view"
+                {...fadeUp}
+                className="w-full max-w-2xl mx-auto px-4"
+              >
+                <Card className="shadow-lg overflow-hidden">
+                  <CardContent className="p-6">
+                    <motion.div
+                      className="flex items-center gap-3 mb-6 pb-4 border-b"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                        <User className="size-6 text-emerald-600 dark:text-emerald-400" />
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex flex-col gap-3 mt-6 pt-4 border-t sm:flex-row sm:justify-end">
-                    <Button variant="outline" onClick={() => setEditing(true)} className="gap-2 border-emerald-600 text-emerald-600 hover:bg-emerald-50">
-                      <Pencil className="size-4" /> {t('form.edit')}
-                    </Button>
-                    <Button variant="destructive" onClick={handleDelete} className="gap-2">
-                      <Trash2 className="size-4" /> {t('form.delete')}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {studentData && editing && (
-            <StudentForm userId={user.id} existingData={studentData} onDataChange={handleDataChange} />
-          )}
-
-          {!studentData && !editing && (
-            <div className="w-full max-w-2xl mx-auto px-4">
-              <Card className="shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center text-center gap-4 py-8">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-                      <AlertTriangle className="size-8 text-amber-600 dark:text-amber-400" />
+                      <div>
+                        <h2 className="text-lg font-semibold">{studentData.fullName}</h2>
+                        <p className="text-sm text-muted-foreground">{parseClassName(studentData.className)}</p>
+                      </div>
+                    </motion.div>
+                    <div className="space-y-4">
+                      {[
+                        [t('form.fullName'), studentData.fullName],
+                        [`${t('form.grade')} / ${t('form.section')}`, parseClassName(studentData.className)],
+                        [t('form.gender'), studentData.gender === 'male' ? t('form.male') : t('form.female')],
+                        [t('form.parentPhone'), studentData.parentPhone],
+                        [t('form.parentEmail'), studentData.parentEmail],
+                        [`${t('form.whatsapp')} ${t('form.optional')}`, studentData.whatsapp || '—'],
+                      ].map(([label, value], idx) => (
+                        <motion.div
+                          key={label as string}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.15 + idx * 0.04 }}
+                          className="flex items-center justify-between py-2 border-b border-dashed last:border-0"
+                        >
+                          <span className="text-sm font-medium text-muted-foreground">{label}</span>
+                          <span className="text-sm font-semibold" dir={['010', '011', '012', '015'].some(p => (value as string).startsWith(p)) ? 'ltr' : dir}>{value}</span>
+                        </motion.div>
+                      ))}
                     </div>
-                    <div className="space-y-1">
-                      <h2 className="text-lg font-semibold">{t('form.noData')}</h2>
-                      <p className="text-sm text-muted-foreground max-w-sm">{t('form.noDataDesc')}</p>
-                    </div>
-                    <Button onClick={() => setEditing(true)} className="mt-2 gap-2 bg-emerald-600 text-white hover:bg-emerald-700 h-11 px-8">
-                      <Plus className="size-4" /> {t('form.addData')}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                    <motion.div
+                      className="flex flex-col gap-3 mt-6 pt-4 border-t sm:flex-row sm:justify-end"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button variant="outline" onClick={() => setEditing(true)} className="gap-2 border-emerald-600 text-emerald-600 hover:bg-emerald-50 w-full sm:w-auto">
+                          <Pencil className="size-4" /> {t('form.edit')}
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button variant="destructive" onClick={handleDelete} className="gap-2 w-full sm:w-auto">
+                          <Trash2 className="size-4" /> {t('form.delete')}
+                        </Button>
+                      </motion.div>
+                    </motion.div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-          {!studentData && editing && (
-            <StudentForm userId={user.id} existingData={null} onDataChange={handleDataChange} />
-          )}
-        </div>
+            {studentData && editing && (
+              <motion.div key="edit" {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
+                <StudentForm userId={user.id} existingData={studentData} onDataChange={handleDataChange} />
+              </motion.div>
+            )}
+
+            {!studentData && !editing && (
+              <motion.div {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
+                <Card className="shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col items-center text-center gap-4 py-8">
+                      <motion.div
+                        className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30"
+                        animate={{ scale: [1, 1.05, 1] }}
+                        transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                      >
+                        <AlertTriangle className="size-8 text-amber-600 dark:text-amber-400" />
+                      </motion.div>
+                      <div className="space-y-1">
+                        <h2 className="text-lg font-semibold">{t('form.noData')}</h2>
+                        <p className="text-sm text-muted-foreground max-w-sm">{t('form.noDataDesc')}</p>
+                      </div>
+                      <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                        <Button onClick={() => setEditing(true)} className="mt-2 gap-2 bg-emerald-600 text-white hover:bg-emerald-700 h-11 px-8 shadow-lg shadow-emerald-600/20">
+                          <Plus className="size-4" /> {t('form.addData')}
+                        </Button>
+                      </motion.div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {!studentData && editing && (
+              <motion.div key="create" {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
+                <StudentForm userId={user.id} existingData={null} onDataChange={handleDataChange} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </main>
       {/* Notification Permission Prompt - Students Only */}
       {user.role === 'student' && (
