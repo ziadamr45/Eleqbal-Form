@@ -185,19 +185,30 @@ export function exportToJson(
 // ─────────────────────────────────────────────
 
 let pdfFontLoaded = false
-let pdfFontPromise: Promise<void> | null = null
+let pdfFontPromise: Promise<boolean> | null = null
+
+const PDF_FONT = { name: 'helvetica', loaded: false }
 
 async function loadCairoFont(doc: jsPDF): Promise<void> {
   if (pdfFontLoaded) return
-  if (pdfFontPromise) return pdfFontPromise
+  if (pdfFontPromise) {
+    const ok = await pdfFontPromise
+    if (!ok) return // fallback mode, don't retry
+    return
+  }
 
-  pdfFontPromise = (async () => {
+  pdfFontPromise = (async (): Promise<boolean> => {
     try {
       const [regularResp, boldResp, semiBoldResp] = await Promise.all([
         fetch('/fonts/Cairo-Regular.ttf'),
         fetch('/fonts/Cairo-Bold.ttf'),
         fetch('/fonts/Cairo-SemiBold.ttf'),
       ])
+
+      if (!regularResp.ok || !boldResp.ok || !semiBoldResp.ok) {
+        console.warn('[PDF] Font fetch returned non-OK status, using fallback')
+        return false
+      }
 
       const [regularBuf, boldBuf, semiBoldBuf] = await Promise.all([
         regularResp.arrayBuffer(),
@@ -223,15 +234,18 @@ async function loadCairoFont(doc: jsPDF): Promise<void> {
       doc.addFont('Cairo-Bold.ttf', 'Cairo', 'bold')
       doc.addFont('Cairo-SemiBold.ttf', 'Cairo', 'semibold')
 
+      PDF_FONT.name = 'Cairo'
+      PDF_FONT.loaded = true
       pdfFontLoaded = true
+      return true
     } catch (err) {
-      console.error('[PDF] Failed to load Cairo font:', err)
+      console.warn('[PDF] Failed to load Cairo font, using fallback:', err)
       pdfFontPromise = null
-      throw err
+      return false
     }
   })()
 
-  return pdfFontPromise
+  await pdfFontPromise
 }
 
 /**
@@ -303,25 +317,25 @@ export async function exportToPdf(
   doc.setFillColor(5, 150, 105) // emerald-600
   doc.rect(0, 0, pageWidth, 22, 'F')
 
-  doc.setFont('Cairo', 'bold')
+  doc.setFont(PDF_FONT.name, 'bold')
   doc.setFontSize(16)
   doc.setTextColor(255, 255, 255)
-  doc.text(reverseArabic(schoolName), pageWidth / 2, 10, { align: 'center' })
+  doc.text(PDF_FONT.loaded ? reverseArabic(schoolName) : schoolName, pageWidth / 2, 10, { align: 'center' })
 
-  doc.setFont('Cairo', 'semibold')
+  doc.setFont(PDF_FONT.name, 'semibold')
   doc.setFontSize(10)
   doc.setTextColor(200, 230, 210)
-  doc.text(reverseArabic(titleText), pageWidth / 2, 17, { align: 'center' })
+  doc.text(PDF_FONT.loaded ? reverseArabic(titleText) : titleText, pageWidth / 2, 17, { align: 'center' })
 
   // ── Info Line ──
-  doc.setFont('Cairo', 'normal')
+  doc.setFont(PDF_FONT.name, 'normal')
   doc.setFontSize(8)
   doc.setTextColor(100, 100, 100)
 
   const infoY = 28
   if (isArabic) {
-    doc.text(reverseArabic(countText), pageWidth - margin, infoY, { align: 'right' })
-    doc.text(reverseArabic(dateLabel + dateText), margin, infoY, { align: 'left' })
+    doc.text(PDF_FONT.loaded ? reverseArabic(countText) : countText, pageWidth - margin, infoY, { align: 'right' })
+    doc.text(PDF_FONT.loaded ? reverseArabic(dateLabel + dateText) : dateLabel + dateText, margin, infoY, { align: 'left' })
   } else {
     doc.text(countText, margin, infoY, { align: 'left' })
     doc.text(`Export Date: ${dateText}`, pageWidth - margin, infoY, { align: 'right' })
@@ -329,17 +343,17 @@ export async function exportToPdf(
 
   // ── Table ──
   const headers = getHeaders(lang)
-  const reversedHeaders = headers.map(reverseArabic)
+  const reversedHeaders = PDF_FONT.loaded ? headers.map(reverseArabic) : headers
 
   const body = students.map((s, idx) => {
     const [g, sec] = (s.className || '//').split('/')
     const row = [
       idx + 1,
-      reverseArabic(s.fullName),
-      reverseArabic(`${gradeLabels[g] || g} - ${sectionLabels[sec] || sec}`),
+      PDF_FONT.loaded ? reverseArabic(s.fullName) : s.fullName,
+      PDF_FONT.loaded ? reverseArabic(`${gradeLabels[g] || g} - ${sectionLabels[sec] || sec}`) : `${gradeLabels[g] || g} - ${sectionLabels[sec] || sec}`,
       s.parentPhone,
       s.parentEmail,
-      reverseArabic(getGenderLabel(s.gender, lang)),
+      PDF_FONT.loaded ? reverseArabic(getGenderLabel(s.gender, lang)) : getGenderLabel(s.gender, lang),
       s.whatsapp || '',
     ]
 
@@ -352,7 +366,7 @@ export async function exportToPdf(
     body,
     margin: { left: margin, right: margin },
     styles: {
-      font: 'Cairo',
+      font: PDF_FONT.name,
       fontSize: 8,
       cellPadding: { top: 2.5, bottom: 2.5, left: 2, right: 2 },
       halign: isArabic ? 'right' : 'left',
@@ -361,7 +375,7 @@ export async function exportToPdf(
       lineWidth: 0.2,
     },
     headStyles: {
-      font: 'Cairo',
+      font: PDF_FONT.name,
       fontStyle: 'bold',
       fillColor: [5, 150, 105],
       textColor: [255, 255, 255],
@@ -398,7 +412,7 @@ export async function exportToPdf(
       doc.setLineWidth(0.3)
       doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10)
 
-      doc.setFont('Cairo', 'normal')
+      doc.setFont(PDF_FONT.name, 'normal')
       doc.setFontSize(7)
       doc.setTextColor(160, 160, 160)
       const pageNum = data.pageNumber
@@ -445,21 +459,21 @@ export async function exportSingleStudentPdf(
   doc.setFillColor(5, 150, 105)
   doc.rect(0, 0, pageWidth, 38, 'F')
 
-  doc.setFont('Cairo', 'bold')
+  doc.setFont(PDF_FONT.name, 'bold')
   doc.setFontSize(18)
   doc.setTextColor(255, 255, 255)
-  doc.text(reverseArabic(schoolName), pageWidth / 2, 16, { align: 'center' })
+  doc.text(PDF_FONT.loaded ? reverseArabic(schoolName) : schoolName, pageWidth / 2, 16, { align: 'center' })
 
-  doc.setFont('Cairo', 'normal')
+  doc.setFont(PDF_FONT.name, 'normal')
   doc.setFontSize(10)
   doc.setTextColor(200, 230, 210)
-  doc.text(reverseArabic(studentTitle), pageWidth / 2, 26, { align: 'center' })
+  doc.text(PDF_FONT.loaded ? reverseArabic(studentTitle) : studentTitle, pageWidth / 2, 26, { align: 'center' })
 
   // Student name
-  doc.setFont('Cairo', 'bold')
+  doc.setFont(PDF_FONT.name, 'bold')
   doc.setFontSize(12)
   doc.setTextColor(255, 255, 255)
-  doc.text(reverseArabic(student.fullName), pageWidth / 2, 34, { align: 'center' })
+  doc.text(PDF_FONT.loaded ? reverseArabic(student.fullName) : student.fullName, pageWidth / 2, 34, { align: 'center' })
 
   // ── Decorative Lines ──
   doc.setDrawColor(232, 168, 56)
@@ -492,8 +506,8 @@ export async function exportSingleStudentPdf(
   ]
 
   const tableBody = fields.map(([label, value]) => [
-    reverseArabic(label),
-    reverseArabic(value),
+    PDF_FONT.loaded ? reverseArabic(label) : label,
+    PDF_FONT.loaded ? reverseArabic(value) : value,
   ])
 
   autoTable(doc, {
@@ -502,7 +516,7 @@ export async function exportSingleStudentPdf(
     margin: { left: margin, right: margin },
     theme: 'plain',
     styles: {
-      font: 'Cairo',
+      font: PDF_FONT.name,
       fontSize: 10,
       cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
       textColor: [30, 30, 30],
@@ -511,7 +525,7 @@ export async function exportSingleStudentPdf(
     },
     columnStyles: {
       0: {
-        font: 'Cairo',
+        font: PDF_FONT.name,
         fontStyle: 'bold',
         fillColor: [240, 253, 244],
         textColor: [5, 150, 105],
@@ -539,7 +553,7 @@ export async function exportSingleStudentPdf(
   doc.setLineWidth(0.3)
   doc.line(margin, pageHeight - 18, pageWidth - margin, pageHeight - 18)
 
-  doc.setFont('Cairo', 'normal')
+  doc.setFont(PDF_FONT.name, 'normal')
   doc.setFontSize(7)
   doc.setTextColor(160, 160, 160)
 
@@ -554,7 +568,7 @@ export async function exportSingleStudentPdf(
   )
 
   doc.text(
-    isArabic ? 'كلية الاقبال القوميه — رقمنة المستندات' : 'Al-Eqbal National College',
+    PDF_FONT.loaded ? reverseArabic('كلية الاقبال القوميه — رقمنة المستندات') : 'Al-Eqbal National College',
     pageWidth / 2,
     pageHeight - 7,
     { align: 'center' },

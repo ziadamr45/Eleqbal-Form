@@ -183,8 +183,14 @@ export default function HomePage() {
   }, [t]);
 
   const parseClassName = (className: string): string => {
+    if (!className) return lang === 'ar' ? 'غير محدد' : 'N/A';
     const parts = className.split('/');
-    return `${t(`grades.${parts[0] || '1'}`)} - ${t(`sections.${parts[1] || '1'}`)}`;
+    const g = parts[0] || '';
+    const s = parts[1] || '';
+    if (!g && !s) return lang === 'ar' ? 'غير محدد' : 'N/A';
+    const gradeLabel = g ? t(`grades.${g}`) : (lang === 'ar' ? 'غير محدد' : 'N/A');
+    const sectionLabel = s ? t(`sections.${s}`) : (lang === 'ar' ? 'غير محدد' : 'N/A');
+    return `${gradeLabel} - ${sectionLabel}`;
   };
 
   // Personalized greeting based on time of day

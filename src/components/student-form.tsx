@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -89,6 +89,27 @@ export function StudentForm({ userId, existingData, onDataChange }: StudentFormP
 
   const schema = createSchema(t);
 
+  // Parse existing className into grade/section for form initialization
+  const parsedExisting = existingData
+    ? {
+        fullName: existingData.fullName || '',
+        grade: (existingData.className || '').split('/')[0] || '',
+        section: (existingData.className || '').split('/')[1] || '',
+        parentPhone: existingData.parentPhone || '',
+        parentEmail: existingData.parentEmail || '',
+        gender: existingData.gender || '',
+        whatsapp: existingData.whatsapp || '',
+      }
+    : {
+        fullName: '',
+        grade: '',
+        section: '',
+        parentPhone: '',
+        parentEmail: '',
+        gender: '',
+        whatsapp: '',
+      };
+
   const {
     register,
     handleSubmit,
@@ -97,33 +118,9 @@ export function StudentForm({ userId, existingData, onDataChange }: StudentFormP
     control,
     formState: { errors, isSubmitting },
   } = useForm<StudentFormData>({
-    defaultValues: {
-      fullName: '',
-      grade: '',
-      section: '',
-      parentPhone: '',
-      parentEmail: '',
-      gender: '',
-      whatsapp: '',
-    },
+    defaultValues: parsedExisting,
     mode: 'onChange',
   });
-
-  // Auto-fill when existingData changes
-  useEffect(() => {
-    if (existingData) {
-      const [grade, section] = (existingData.className || '/').split('/');
-      reset({
-        fullName: existingData.fullName || '',
-        grade: grade || '',
-        section: section || '',
-        parentPhone: existingData.parentPhone || '',
-        parentEmail: existingData.parentEmail || '',
-        gender: existingData.gender || '',
-        whatsapp: existingData.whatsapp || '',
-      });
-    }
-  }, [existingData, reset]);
 
   const watchedGender = useWatch({ control, name: 'gender' });
   const watchedGrade = useWatch({ control, name: 'grade' });
