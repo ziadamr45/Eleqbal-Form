@@ -19,7 +19,7 @@ import ActivityFeed from '@/components/admin/ActivityFeed';
 import SystemStatus from '@/components/admin/SystemStatus';
 import AdminNotificationBell from '@/components/admin/AdminNotificationBell';
 import SkeletonTable from '@/components/admin/SkeletonTable';
-import { generateStudentPDF } from '@/lib/pdf';
+import { generateStudentPDF, generateBulkStudentPDF } from '@/lib/pdf';
 import type { StudentRecord } from '@/lib/pdf';
 
 interface Stats { totalStudents: number; totalUsers: number; maleCount: number; femaleCount: number; studentsByClass: { className: string; count: number }[] }
@@ -186,17 +186,34 @@ export default function AdminDashboard() {
   const refresh = () => { fetchStudents(); fetchStats(); };
 
   // ── PDF Download ──
-  const downloadSinglePdf = (student: StudentRecord) => {
+  const downloadSinglePdf = async (student: StudentRecord) => {
     try {
-      const blob = generateStudentPDF(student, lang);
+      toast.loading(lang === 'ar' ? 'جاري إنشاء PDF...' : 'Generating PDF...', { id: 'pdf' });
+      const blob = await generateStudentPDF(student, lang);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `${student.fullName.replace(/\s+/g, '_')}.pdf`;
       a.click();
       URL.revokeObjectURL(a.href);
-      toast.success(t('admin.downloadPdf'));
+      toast.success(t('admin.downloadPdf'), { id: 'pdf' });
     } catch {
-      toast.error(lang === 'ar' ? 'خطأ في إنشاء PDF' : 'Error generating PDF');
+      toast.error(lang === 'ar' ? 'خطأ في إنشاء PDF' : 'Error generating PDF', { id: 'pdf' });
+    }
+  };
+
+  const downloadBulkPdf = async () => {
+    if (students.length === 0) return;
+    try {
+      toast.loading(lang === 'ar' ? 'جاري إنشاء PDF...' : 'Generating PDF...', { id: 'pdf' });
+      const blob = await generateBulkStudentPDF(students, lang);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `students_${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success(lang === 'ar' ? 'تم تحميل PDF بنجاح' : 'PDF downloaded', { id: 'pdf' });
+    } catch {
+      toast.error(lang === 'ar' ? 'خطأ في إنشاء PDF' : 'Error generating PDF', { id: 'pdf' });
     }
   };
 
@@ -680,8 +697,8 @@ export default function AdminDashboard() {
               <Button variant="outline" size="sm" onClick={() => doExport('excel')} className="gap-1 h-7 text-xs">
                 <FileSpreadsheet className="size-3" /> Excel
               </Button>
-              <Button variant="outline" size="sm" onClick={() => doExport('csv')} className="gap-1 h-7 text-xs">
-                <FileText className="size-3" /> {t('admin.pdf')}
+              <Button variant="outline" size="sm" onClick={downloadBulkPdf} className="gap-1 h-7 text-xs">
+                <FileText className="size-3" /> PDF
               </Button>
             </div>
           </div>
