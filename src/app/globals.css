@@ -167,3 +167,117 @@ html.transitioning *::after {
 ::selection {
   background-color: oklch(0.508 0.185 163.222 / 30%);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Animated Premium Background
+   Pure CSS floating gradient orbs — GPU-accelerated, lightweight
+   ══════════════════════════════════════════════════════════════ */
+
+.bg-animated {
+  position: relative;
+  overflow: hidden;
+}
+
+.bg-animated::before,
+.bg-animated::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(80px);
+  opacity: 0.35;
+  will-change: transform;
+}
+
+/* Light mode orbs */
+.bg-animated::before {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, oklch(0.78 0.12 160), transparent 70%);
+  top: -10%;
+  right: -5%;
+  animation: float-1 20s ease-in-out infinite;
+}
+
+.bg-animated::after {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, oklch(0.82 0.08 230), transparent 70%);
+  bottom: -8%;
+  left: -5%;
+  animation: float-2 25s ease-in-out infinite;
+}
+
+/* Dark mode orbs — softer, more subtle */
+.dark .bg-animated::before {
+  opacity: 0.12;
+  background: radial-gradient(circle, oklch(0.45 0.15 160), transparent 70%);
+  filter: blur(100px);
+}
+
+.dark .bg-animated::after {
+  opacity: 0.08;
+  background: radial-gradient(circle, oklch(0.35 0.12 250), transparent 70%);
+  filter: blur(120px);
+}
+
+/* Floating animations */
+@keyframes float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(-40px, 30px) scale(1.05); }
+  50%      { transform: translate(20px, 60px) scale(0.95); }
+  75%      { transform: translate(30px, -20px) scale(1.02); }
+}
+
+@keyframes float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(30px, -40px) scale(0.97); }
+  50%      { transform: translate(-20px, -60px) scale(1.04); }
+  75%      { transform: translate(-30px, 20px) scale(0.98); }
+}
+
+/* Third orb — extra ambient glow (middle area) */
+.bg-animated > .bg-orb-mid {
+  position: fixed;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle, oklch(0.75 0.1 50), transparent 70%);
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.2;
+  filter: blur(70px);
+  animation: float-3 30s ease-in-out infinite;
+  will-change: transform;
+}
+
+.dark .bg-orb-mid {
+  opacity: 0.06;
+  background: radial-gradient(circle, oklch(0.40 0.1 50), transparent 70%);
+  filter: blur(90px);
+}
+
+@keyframes float-3 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  33%      { transform: translate(calc(-50% + 50px), calc(-50% - 30px)) scale(1.08); }
+  66%      { transform: translate(calc(-50% - 40px), calc(-50% + 40px)) scale(0.94); }
+}
+
+/* Ensure content stays above the background */
+.bg-animated > *:not(.bg-orb-mid) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .bg-animated::before,
+  .bg-animated::after,
+  .bg-orb-mid {
+    animation: none !important;
+  }
+}
