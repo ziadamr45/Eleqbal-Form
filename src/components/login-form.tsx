@@ -1,24 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Mail, ShieldCheck, ArrowLeft, RefreshCw, UserPlus, LogIn } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Loader2, Mail, ShieldCheck, ArrowLeft, RefreshCw, UserPlus, LogIn, Chrome } from 'lucide-react';
 import {
-  Card,
-  CardHeader,
-  CardContent,
-  CardFooter,
-  CardTitle,
-  CardDescription,
+  Card, CardHeader, CardContent, CardFooter, CardTitle, CardDescription,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-  InputOTPSeparator,
+  InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator,
 } from '@/components/ui/input-otp';
+import { Separator } from '@/components/ui/separator';
 import { useLanguage, getT } from '@/lib/i18n/context';
 
 interface LoginFormProps {
@@ -33,6 +26,38 @@ const OTP_NAME_KEY = 'otp_name';
 
 type Mode = 'login' | 'register';
 
+// Declare global type for Google Identity Services
+declare global {
+  interface Window {
+    google: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+          }) => void;
+          renderButton: (
+            element: HTMLElement,
+            options: {
+              theme?: string;
+              size?: string;
+              text?: string;
+              shape?: string;
+              logo_alignment?: string;
+              width?: string;
+              locale?: string;
+            }
+          ) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
+
+// Google client ID
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '815731934446-6kcimgg5p0n41kg219dg3jlc93lvfd0d.apps.googleusercontent.com';
+
 export function LoginForm({ onLogin }: LoginFormProps) {
   const { lang, dir } = useLanguage();
   const t = getT(lang);
@@ -43,10 +68,45 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
   const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
   const [restored, setRestored] = useState(false);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  // Load Google GSI script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setGoogleLoaded(true);
+    document.head.appendChild(script);
+  }, []);
+
+  // Initialize Google Sign-In
+  useEffect(() => {
+    if (!googleLoaded || !googleBtnRef.current) return;
+
+    // Initialize GSI
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredential,
+    });
+
+    // Render Google button
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'outline',
+      size: 'large',
+      text: lang === 'ar' ? 'signin_with' : 'signin_with',
+      shape: 'rectangular',
+      logo_alignment: 'center',
+      width: '100%',
+      locale: lang === 'ar' ? 'ar' : 'en',
+    });
+  }, [googleLoaded, lang]);
 
   // Restore OTP state from localStorage on mount
   useEffect(() => {
@@ -61,15 +121,8 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         setEmail(savedEmail);
         setStep(2);
         setFadeState('in');
-
-        if (savedMode === 'login' || savedMode === 'register') {
-          setMode(savedMode);
-        }
-        if (savedName) {
-          setName(savedName);
-        }
-
-        // Calculate remaining resend cooldown
+        if (savedMode === 'login' || savedMode === 'register') setMode(savedMode);
+        if (savedName) setName(savedName);
         if (savedTime) {
           const elapsed = Math.floor((Date.now() - parseInt(savedTime)) / 1000);
           const remaining = Math.max(0, 60 - elapsed);
@@ -77,9 +130,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         }
         setRestored(true);
       }
-    } catch {
-      // Ignore localStorage errors
-    }
+    } catch { /* Ignore localStorage errors */ }
   }, []);
 
   // Resend countdown
@@ -92,10 +143,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
   const transitionTo = useCallback((nextStep: 1 | 2) => {
     setFadeState('out');
-    setTimeout(() => {
-      setStep(nextStep);
-      setFadeState('in');
-    }, 150);
+    setTimeout(() => { setStep(nextStep); setFadeState('in'); }, 150);
   }, []);
 
   const saveOtpState = useCallback((emailValue: string, modeValue: Mode, nameValue?: string) => {
@@ -104,14 +152,9 @@ export function LoginForm({ onLogin }: LoginFormProps) {
       localStorage.setItem(OTP_EMAIL_KEY, emailValue);
       localStorage.setItem(OTP_TIME_KEY, Date.now().toString());
       localStorage.setItem(OTP_MODE_KEY, modeValue);
-      if (nameValue) {
-        localStorage.setItem(OTP_NAME_KEY, nameValue);
-      } else {
-        localStorage.removeItem(OTP_NAME_KEY);
-      }
-    } catch {
-      // Ignore
-    }
+      if (nameValue) localStorage.setItem(OTP_NAME_KEY, nameValue);
+      else localStorage.removeItem(OTP_NAME_KEY);
+    } catch { /* Ignore */ }
   }, []);
 
   const clearOtpState = useCallback(() => {
@@ -121,36 +164,44 @@ export function LoginForm({ onLogin }: LoginFormProps) {
       localStorage.removeItem(OTP_TIME_KEY);
       localStorage.removeItem(OTP_MODE_KEY);
       localStorage.removeItem(OTP_NAME_KEY);
-    } catch {
-      // Ignore
-    }
+    } catch { /* Ignore */ }
   }, []);
 
+  const handleGoogleCredential = useCallback(async (response: { credential: string }) => {
+    setGoogleLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        clearOtpState();
+        onLogin({ id: data.user.id, email: data.user.email, name: data.user.name ?? null });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || t('login.googleError'));
+      }
+    } catch {
+      setError(t('login.googleError'));
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [clearOtpState, onLogin, t]);
+
   const validateEmail = (emailValue: string): boolean => {
-    if (!emailValue.trim()) {
-      setError(t('login.emailRequired'));
-      return false;
-    }
+    if (!emailValue.trim()) { setError(t('login.emailRequired')); return false; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailValue)) {
-      setError(t('login.emailInvalid'));
-      return false;
-    }
+    if (!emailRegex.test(emailValue)) { setError(t('login.emailInvalid')); return false; }
     return true;
   };
 
   const handleSendOtp = async () => {
     setError('');
-
-    if (mode === 'register') {
-      if (!name.trim()) {
-        setError(t('login.nameRequired'));
-        return;
-      }
-    }
-
+    if (mode === 'register' && !name.trim()) { setError(t('login.nameRequired')); return; }
     if (!validateEmail(email)) return;
-
     setLoading(true);
     try {
       const res = await fetch('/api/auth/send-otp', {
@@ -158,62 +209,37 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-
       if (res.ok) {
         setResendTimer(60);
         saveOtpState(email, mode, mode === 'register' ? name : undefined);
         transitionTo(2);
-      } else {
-        setError(t('login.otpError'));
-      }
-    } catch {
-      setError(t('login.otpError'));
-    } finally {
-      setLoading(false);
-    }
+      } else { setError(t('login.otpError')); }
+    } catch { setError(t('login.otpError')); }
+    finally { setLoading(false); }
   };
 
   const handleVerify = async () => {
     setError('');
-    if (!otp || otp.length !== 6) {
-      setError(t('login.otpLength'));
-      return;
-    }
-
+    if (!otp || otp.length !== 6) { setError(t('login.otpLength')); return; }
     setLoading(true);
     try {
-      const body: { email: string; code: string; name?: string } = {
-        email,
-        code: otp,
-      };
-
-      if (mode === 'register') {
-        body.name = name;
-      }
-
+      const body: { email: string; code: string; name?: string } = { email, code: otp };
+      if (mode === 'register') body.name = name;
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-
       if (res.ok) {
         const data = await res.json();
         clearOtpState();
-        onLogin({
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.name ?? null,
-        });
+        onLogin({ id: data.user.id, email: data.user.email, name: data.user.name ?? null });
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || t('login.verifyError'));
       }
-    } catch {
-      setError(t('login.verifyError'));
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError(t('login.verifyError')); }
+    finally { setLoading(false); }
   };
 
   const handleResend = async () => {
@@ -226,19 +252,13 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-
       if (res.ok) {
         setResendTimer(60);
         saveOtpState(email, mode, mode === 'register' ? name : undefined);
         setOtp('');
-      } else {
-        setError(t('login.resendError'));
-      }
-    } catch {
-      setError(t('login.resendError'));
-    } finally {
-      setLoading(false);
-    }
+      } else { setError(t('login.resendError')); }
+    } catch { setError(t('login.resendError')); }
+    finally { setLoading(false); }
   };
 
   const handleBack = () => {
@@ -260,11 +280,8 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      if (step === 1) {
-        handleSendOtp();
-      } else if (step === 2 && otp.length === 6) {
-        handleVerify();
-      }
+      if (step === 1) handleSendOtp();
+      else if (step === 2 && otp.length === 6) handleVerify();
     }
   };
 
@@ -272,211 +289,124 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
   return (
     <div dir={dir} className="flex w-full max-w-md items-center justify-center px-4">
-      <Card
-        className={`w-full transition-all duration-150 ${
-          fadeState === 'in'
-            ? 'translate-y-0 opacity-100'
-            : 'translate-y-1 opacity-0'
-        }`}
-      >
-        {/* Tabs */}
+      <Card className={`w-full transition-all duration-150 ${fadeState === 'in' ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'}`}>
+        {/* Login/Register Tabs */}
         <div className="flex gap-2 p-4 pb-0">
-          <button
-            type="button"
-            onClick={() => handleTabSwitch('login')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
-              isLogin
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            <LogIn className="size-4" />
-            {t('login.loginTab')}
+          <button type="button" onClick={() => handleTabSwitch('login')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${isLogin ? 'bg-emerald-600 text-white shadow-sm' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+            <LogIn className="size-4" /> {t('login.loginTab')}
           </button>
-          <button
-            type="button"
-            onClick={() => handleTabSwitch('register')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
-              !isLogin
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            <UserPlus className="size-4" />
-            {t('login.registerTab')}
+          <button type="button" onClick={() => handleTabSwitch('register')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${!isLogin ? 'bg-emerald-600 text-white shadow-sm' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+            <UserPlus className="size-4" /> {t('login.registerTab')}
           </button>
         </div>
 
         <CardHeader className="text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-            {step === 1 ? (
-              <Mail className="size-7 text-emerald-600 dark:text-emerald-400" />
-            ) : (
-              <ShieldCheck className="size-7 text-emerald-600 dark:text-emerald-400" />
-            )}
+            {step === 1 ? <Mail className="size-7 text-emerald-600 dark:text-emerald-400" />
+                        : <ShieldCheck className="size-7 text-emerald-600 dark:text-emerald-400" />}
           </div>
           <CardTitle className="text-xl">
-            {step === 1
-              ? t(isLogin ? 'login.title' : 'login.registerTab')
-              : t('login.otpTitle')}
+            {step === 1 ? t(isLogin ? 'login.title' : 'login.registerTab') : t('login.otpTitle')}
           </CardTitle>
           <CardDescription className="text-sm">
-            {step === 1
-              ? t('login.subtitle')
-              : t('login.otpSubtitle')}
+            {step === 1 ? t('login.subtitle') : t('login.otpSubtitle')}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Step 1: Input fields */}
           {step === 1 && (
             <div className="space-y-4">
-              {/* Name field — register mode only */}
+              {/* Google Sign-In Button */}
+              <div className="space-y-3">
+                <div ref={googleBtnRef} className="flex justify-center w-full min-h-[44px] [&>div]:w-full">
+                  {/* Google renders the button here */}
+                  {!googleLoaded && (
+                    <Button variant="outline" className="h-11 w-full gap-2" disabled>
+                      <Chrome className="size-4" />
+                      <Loader2 className="size-4 animate-spin" />
+                      Google...
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Separator */}
+              <div className="relative flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground whitespace-nowrap px-2">
+                  {t('login.orContinueWith')}
+                </span>
+                <Separator className="flex-1" />
+              </div>
+
+              {/* Email OTP Form */}
               {!isLogin && (
                 <div className="space-y-2">
                   <Label htmlFor="name">{t('login.name')}</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder={t('login.namePlaceholder')}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    disabled={loading}
-                    className="h-11"
-                    autoComplete="name"
-                  />
+                  <Input id="name" type="text" placeholder={t('login.namePlaceholder')}
+                    value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKeyDown}
+                    disabled={loading} className="h-11" autoComplete="name" />
                 </div>
               )}
-
-              {/* Email field */}
               <div className="space-y-2">
                 <Label htmlFor="email">{t('login.emailLabel')}</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder={t('login.emailPlaceholder')}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={loading}
-                  className="h-11"
-                  dir="ltr"
-                  autoComplete="email"
-                />
+                <Input id="email" type="email" placeholder={t('login.emailPlaceholder')}
+                  value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKeyDown}
+                  disabled={loading} className="h-11" dir="ltr" autoComplete="email" />
               </div>
             </div>
           )}
 
-          {/* Step 2: OTP verification */}
           {step === 2 && (
             <div className="flex flex-col items-center gap-6">
               <div dir="ltr">
-                <InputOTP
-                  maxLength={6}
-                  value={otp}
-                  onChange={setOtp}
-                  disabled={loading}
-                  onComplete={handleVerify}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                  </InputOTPGroup>
+                <InputOTP maxLength={6} value={otp} onChange={setOtp} disabled={loading} onComplete={handleVerify}>
+                  <InputOTPGroup><InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} /></InputOTPGroup>
                   <InputOTPSeparator />
-                  <InputOTPGroup>
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
+                  <InputOTPGroup><InputOTPSlot index={3} /><InputOTPSlot index={4} /><InputOTPSlot index={5} /></InputOTPGroup>
                 </InputOTP>
               </div>
-
               <p className="text-sm text-muted-foreground">{email}</p>
-
-              {/* Restored state hint */}
               {restored && (
                 <p className="rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
-                  {lang === 'ar'
-                    ? '📍 أدخل كود التحقق الذي تم إرساله إلى بريدك الإلكتروني'
-                    : '📍 Enter the verification code sent to your email'}
+                  {lang === 'ar' ? '📍 أدخل كود التحقق الذي تم إرساله إلى بريدك الإلكتروني' : '📍 Enter the verification code sent to your email'}
                 </p>
               )}
             </div>
           )}
 
-          {/* Error display */}
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
-              {error}
-            </div>
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">{error}</div>
           )}
         </CardContent>
 
         <CardFooter className="flex flex-col gap-3">
           {step === 1 && (
-            <Button
-              onClick={handleSendOtp}
-              disabled={loading || !email.trim()}
-              className="h-11 w-full bg-emerald-600 text-white hover:bg-emerald-700"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {t('login.sending')}
-                </>
-              ) : (
-                t('login.sendOtp')
-              )}
+            <Button onClick={handleSendOtp} disabled={loading || !email.trim()}
+              className="h-11 w-full bg-emerald-600 text-white hover:bg-emerald-700">
+              {loading ? (<><Loader2 className="size-4 animate-spin" /> {t('login.sending')}</>)
+                         : t('login.sendOtp')}
             </Button>
           )}
-
           {step === 2 && (
             <>
-              <Button
-                onClick={handleVerify}
-                disabled={loading || otp.length !== 6}
-                className="h-11 w-full bg-emerald-600 text-white hover:bg-emerald-700"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    {t('login.verifying')}
-                  </>
-                ) : (
-                  t('login.verify')
-                )}
+              <Button onClick={handleVerify} disabled={loading || otp.length !== 6}
+                className="h-11 w-full bg-emerald-600 text-white hover:bg-emerald-700">
+                {loading ? (<><Loader2 className="size-4 animate-spin" /> {t('login.verifying')}</>)
+                           : t('login.verify')}
               </Button>
-
               <div className="flex w-full items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBack}
-                  className="gap-1.5"
-                >
-                  {dir === 'rtl' ? (
-                    <ArrowLeft className="size-4 rotate-180" />
-                  ) : (
-                    <ArrowLeft className="size-4" />
-                  )}
+                <Button variant="ghost" size="sm" onClick={handleBack} className="gap-1.5">
+                  {dir === 'rtl' ? <ArrowLeft className="size-4 rotate-180" /> : <ArrowLeft className="size-4" />}
                   {t('login.back')}
                 </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleResend}
+                <Button variant="ghost" size="sm" onClick={handleResend}
                   disabled={resendTimer > 0 || loading}
-                  className="gap-1.5 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-                >
-                  <RefreshCw
-                    className={`size-4 ${loading ? 'animate-spin' : ''}`}
-                  />
-                  {resendTimer > 0
-                    ? `${t('login.resendIn')} ${resendTimer} ${t('login.seconds')}`
-                    : t('login.resend')}
+                  className="gap-1.5 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
+                  <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+                  {resendTimer > 0 ? `${t('login.resendIn')} ${resendTimer} ${t('login.seconds')}` : t('login.resend')}
                 </Button>
               </div>
             </>

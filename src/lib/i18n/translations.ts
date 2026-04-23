@@ -37,6 +37,9 @@ export const translations: Record<Language, Record<string, Record<string, string
       name: "الاسم الكامل",
       namePlaceholder: "أدخل اسمك الكامل",
       nameRequired: "يرجى إدخال الاسم",
+      orContinueWith: "أو المتابعة باستخدام",
+      googleSignIn: "تسجيل الدخول بحساب Google",
+      googleError: "فشل تسجيل الدخول بحساب Google",
     },
     form: {
       title: "نموذج بيانات الطالب",
@@ -135,6 +138,9 @@ export const translations: Record<Language, Record<string, Record<string, string
       name: "Full Name",
       namePlaceholder: "Enter your full name",
       nameRequired: "Please enter your name",
+      orContinueWith: "or continue with",
+      googleSignIn: "Sign in with Google",
+      googleError: "Google sign-in failed",
     },
     form: {
       title: "Student Data Form",
