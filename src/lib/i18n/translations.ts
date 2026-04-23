@@ -101,6 +101,14 @@ export const translations: Record<Language, Record<string, Record<string, string
       "2": "الفصل الثاني",
       "3": "الفصل الثالث",
     },
+    push: {
+      title: "فعّل الإشعارات",
+      description: "فعّل الإشعارات عشان تتلقى أخبار وإعلانات مهمة من الكلية على طول، حتى لو كنت خارج الموقع ✨",
+      enable: "تفعيل الإشعارات",
+      dismiss: "لاحقاً",
+      enabled: "تم تفعيل الإشعارات بنجاح ✅",
+      denied: "لم يتم تفعيل الإشعارات. يمكنك تفعيلها من إعدادات المتصفح.",
+    },
   },
   en: {
     appName: "Al-Eqbal National College",
@@ -201,6 +209,14 @@ export const translations: Record<Language, Record<string, Record<string, string
       "1": "Section 1",
       "2": "Section 2",
       "3": "Section 3",
+    },
+    push: {
+      title: "Enable Notifications",
+      description: "Enable notifications to receive important news and announcements from the college, even when you're not on the site ✨",
+      enable: "Enable Notifications",
+      dismiss: "Later",
+      enabled: "Notifications enabled successfully ✅",
+      denied: "Notifications not enabled. You can enable them from your browser settings.",
     },
   },
 } as const;

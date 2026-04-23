@@ -6,6 +6,7 @@ import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { LoginForm } from '@/components/login-form';
 import { StudentForm } from '@/components/student-form';
+import { NotificationPrompt } from '@/components/notification-prompt';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -384,6 +385,11 @@ export default function HomePage() {
           )}
         </div>
       </main>
+      {/* Notification Permission Prompt - Students Only */}
+      {user.role === 'student' && (
+        <NotificationPrompt visible={true} />
+      )}
+
       <Footer />
     </div>
   );
