@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
         id: session.user.id,
         email: session.user.email,
         name: session.user.name,
+        role: session.user.role,
         student: session.user.student,
       },
     })

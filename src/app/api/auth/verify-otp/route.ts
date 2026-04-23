@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { isAdminEmail } from '@/lib/admin-auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,18 +55,23 @@ export async function POST(request: NextRequest) {
       where: { email },
     })
 
+    const isAdmin = isAdminEmail(email)
+    const role = isAdmin ? 'admin' : 'student'
+
     let isNewUser = false
     if (!user) {
       user = await db.user.create({
-        data: { email, name: name || null },
+        data: { email, name: name || null, role },
       })
       isNewUser = true
     } else {
-      // Update name if registering with a new name
-      if (name) {
+      const updates: Record<string, unknown> = {}
+      if (name) updates.name = name || user.name
+      if (isAdmin && user.role !== 'admin') updates.role = 'admin'
+      if (Object.keys(updates).length > 0) {
         user = await db.user.update({
           where: { id: user.id },
-          data: { name: name || user.name },
+          data: updates,
         })
       }
     }
@@ -89,6 +95,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
       isNewUser,
     })

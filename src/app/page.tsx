@@ -28,6 +28,7 @@ interface UserData {
   id: string;
   email: string;
   name: string | null;
+  role: string;
   student: StudentData | null;
 }
 
@@ -136,7 +137,7 @@ export default function HomePage() {
   // ─── Authenticated → Dashboard ───
   return (
     <div dir={dir} className="min-h-screen flex flex-col bg-background">
-      <Header isLoggedIn={true} onLogout={handleLogout} />
+      <Header isLoggedIn={true} isAdmin={user.role === 'admin'} onLogout={handleLogout} />
       <main className="flex-1 py-8 px-4">
         <div className="flex flex-col items-center gap-6">
           {/* Welcome Banner */}

@@ -2,17 +2,18 @@
 
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Languages, LogOut } from 'lucide-react';
+import { Sun, Moon, Languages, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n/context';
 import { useSyncExternalStore } from 'react';
 
 interface HeaderProps {
   isLoggedIn: boolean;
+  isAdmin?: boolean;
   onLogout: () => void;
 }
 
-export function Header({ isLoggedIn, onLogout }: HeaderProps) {
+export function Header({ isLoggedIn, isAdmin, onLogout }: HeaderProps) {
   const { lang, setLang, t, dir } = useLanguage();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const mounted = useSyncExternalStore(
@@ -82,6 +83,21 @@ export function Header({ isLoggedIn, onLogout }: HeaderProps) {
               ) : (
                 <Moon className="size-4" />
               )}
+            </Button>
+          )}
+
+          {/* Admin Button */}
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.href = '/admin'}
+              className="gap-1.5 text-sm font-medium text-emerald-600 border-emerald-600 hover:bg-emerald-50"
+            >
+              <Shield className="size-4" />
+              <span className="hidden sm:inline">
+                {typeof t === 'string' ? '' : (lang === 'ar' ? 'لوحة التحكم' : 'Admin')}
+              </span>
             </Button>
           )}
 

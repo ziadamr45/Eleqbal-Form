@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { OAuth2Client } from 'google-auth-library'
 import { db } from '@/lib/db'
+import { isAdminEmail } from '@/lib/admin-auth'
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
 
@@ -40,6 +41,9 @@ export async function POST(request: NextRequest) {
 
     const { email, name, picture } = payload
 
+    const isAdmin = isAdminEmail(email)
+    const role = isAdmin ? 'admin' : 'student'
+
     // Find or create user
     let user = await db.user.findUnique({ where: { email } })
     let isNewUser = false
@@ -49,14 +53,20 @@ export async function POST(request: NextRequest) {
         data: {
           email,
           name: name || null,
+          role,
         },
       })
       isNewUser = true
-    } else if (name && (!user.name || user.name !== name)) {
-      user = await db.user.update({
-        where: { id: user.id },
-        data: { name: name || user.name },
-      })
+    } else {
+      const updates: Record<string, unknown> = {}
+      if (name && (!user.name || user.name !== name)) updates.name = name || user.name
+      if (isAdmin && user.role !== 'admin') updates.role = 'admin'
+      if (Object.keys(updates).length > 0) {
+        user = await db.user.update({
+          where: { id: user.id },
+          data: updates,
+        })
+      }
     }
 
     // Create session (same as OTP flow)
@@ -72,6 +82,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
         avatar: picture || null,
       },
       isNewUser,
