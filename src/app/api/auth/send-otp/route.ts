@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { sendOtpEmail } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,10 +47,23 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Try to send the OTP email
+    const emailSent = await sendOtpEmail(email, code)
+
+    if (!emailSent) {
+      // Email failed to send - return OTP in response for demo mode
+      // In production, you should return an error instead
+      return NextResponse.json({
+        success: true,
+        message: 'otp_generated',
+        demo: true,
+        otp: code,
+      })
+    }
+
     return NextResponse.json({
       success: true,
       message: 'otp_sent',
-      otp: code,
     })
   } catch (error) {
     console.error('Send OTP error:', error)

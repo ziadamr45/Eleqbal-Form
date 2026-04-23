@@ -14,15 +14,18 @@ interface HeaderProps {
 
 export function Header({ isLoggedIn, onLogout }: HeaderProps) {
   const { lang, setLang, t, dir } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false
   );
 
+  // Use resolvedTheme to get actual "dark" or "light" (not "system")
+  const isDark = resolvedTheme === 'dark';
+
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTheme(isDark ? 'light' : 'dark');
   };
 
   const toggleLanguage = () => {
@@ -70,17 +73,15 @@ export function Header({ isLoggedIn, onLogout }: HeaderProps) {
               size="sm"
               onClick={toggleTheme}
               className="gap-1.5 text-sm font-medium"
+              title={isDark
+                ? (typeof t === 'string' ? '' : t.lightMode)
+                : (typeof t === 'string' ? '' : t.darkMode)}
             >
-              {theme === 'dark' ? (
+              {isDark ? (
                 <Sun className="size-4" />
               ) : (
                 <Moon className="size-4" />
               )}
-              <span className="hidden sm:inline">
-                {theme === 'dark'
-                  ? (typeof t === 'string' ? '' : t.lightMode)
-                  : (typeof t === 'string' ? '' : t.darkMode)}
-              </span>
             </Button>
           )}
 
