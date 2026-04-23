@@ -310,7 +310,7 @@ export async function exportToPdf(
       const pageNum = data.pageNumber
       const totalPages = doc.getNumberOfPages()
       const pageText = isArabic
-        ? await prepareArabicText(`صفحة ${pageNum} من ${totalPages}`)
+        ? `${pageNum} / ${totalPages}`
         : `Page ${pageNum} / ${totalPages}`
       doc.text(pageText, pageWidth / 2, pageHeight - 6, { align: 'center' })
     },
