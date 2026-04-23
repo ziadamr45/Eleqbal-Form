@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, Mail, ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Loader2, Mail, ShieldCheck, ArrowLeft, RefreshCw, UserPlus, LogIn } from 'lucide-react';
 import {
   Card,
   CardHeader,
@@ -22,17 +22,24 @@ import {
 import { useLanguage, getT } from '@/lib/i18n/context';
 
 interface LoginFormProps {
-  onLogin: (user: { id: string; email: string }) => void;
+  onLogin: (user: { id: string; email: string; name: string | null }) => void;
 }
 
 const OTP_STATE_KEY = 'otp_pending';
 const OTP_EMAIL_KEY = 'otp_email';
 const OTP_TIME_KEY = 'otp_time';
+const OTP_MODE_KEY = 'otp_mode';
+const OTP_NAME_KEY = 'otp_name';
+
+type Mode = 'login' | 'register';
 
 export function LoginForm({ onLogin }: LoginFormProps) {
   const { lang, dir } = useLanguage();
   const t = getT(lang);
+
+  const [mode, setMode] = useState<Mode>('login');
   const [step, setStep] = useState<1 | 2>(1);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,13 +54,22 @@ export function LoginForm({ onLogin }: LoginFormProps) {
       const pending = localStorage.getItem(OTP_STATE_KEY);
       const savedEmail = localStorage.getItem(OTP_EMAIL_KEY);
       const savedTime = localStorage.getItem(OTP_TIME_KEY);
+      const savedMode = localStorage.getItem(OTP_MODE_KEY) as Mode | null;
+      const savedName = localStorage.getItem(OTP_NAME_KEY);
 
       if (pending === 'true' && savedEmail) {
         setEmail(savedEmail);
         setStep(2);
         setFadeState('in');
 
-        // Calculate remaining time (5 min expiry)
+        if (savedMode === 'login' || savedMode === 'register') {
+          setMode(savedMode);
+        }
+        if (savedName) {
+          setName(savedName);
+        }
+
+        // Calculate remaining resend cooldown
         if (savedTime) {
           const elapsed = Math.floor((Date.now() - parseInt(savedTime)) / 1000);
           const remaining = Math.max(0, 60 - elapsed);
@@ -63,28 +79,6 @@ export function LoginForm({ onLogin }: LoginFormProps) {
       }
     } catch {
       // Ignore localStorage errors
-    }
-  }, []);
-
-  // Save OTP state to localStorage when sending OTP
-  const saveOtpState = useCallback((emailValue: string) => {
-    try {
-      localStorage.setItem(OTP_STATE_KEY, 'true');
-      localStorage.setItem(OTP_EMAIL_KEY, emailValue);
-      localStorage.setItem(OTP_TIME_KEY, Date.now().toString());
-    } catch {
-      // Ignore
-    }
-  }, []);
-
-  // Clear OTP state from localStorage
-  const clearOtpState = useCallback(() => {
-    try {
-      localStorage.removeItem(OTP_STATE_KEY);
-      localStorage.removeItem(OTP_EMAIL_KEY);
-      localStorage.removeItem(OTP_TIME_KEY);
-    } catch {
-      // Ignore
     }
   }, []);
 
@@ -104,7 +98,35 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     }, 150);
   }, []);
 
-  const validateEmail = (emailValue: string) => {
+  const saveOtpState = useCallback((emailValue: string, modeValue: Mode, nameValue?: string) => {
+    try {
+      localStorage.setItem(OTP_STATE_KEY, 'true');
+      localStorage.setItem(OTP_EMAIL_KEY, emailValue);
+      localStorage.setItem(OTP_TIME_KEY, Date.now().toString());
+      localStorage.setItem(OTP_MODE_KEY, modeValue);
+      if (nameValue) {
+        localStorage.setItem(OTP_NAME_KEY, nameValue);
+      } else {
+        localStorage.removeItem(OTP_NAME_KEY);
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const clearOtpState = useCallback(() => {
+    try {
+      localStorage.removeItem(OTP_STATE_KEY);
+      localStorage.removeItem(OTP_EMAIL_KEY);
+      localStorage.removeItem(OTP_TIME_KEY);
+      localStorage.removeItem(OTP_MODE_KEY);
+      localStorage.removeItem(OTP_NAME_KEY);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const validateEmail = (emailValue: string): boolean => {
     if (!emailValue.trim()) {
       setError(t('login.emailRequired'));
       return false;
@@ -119,6 +141,14 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
   const handleSendOtp = async () => {
     setError('');
+
+    if (mode === 'register') {
+      if (!name.trim()) {
+        setError(t('login.nameRequired'));
+        return;
+      }
+    }
+
     if (!validateEmail(email)) return;
 
     setLoading(true);
@@ -131,7 +161,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
       if (res.ok) {
         setResendTimer(60);
-        saveOtpState(email);
+        saveOtpState(email, mode, mode === 'register' ? name : undefined);
         transitionTo(2);
       } else {
         setError(t('login.otpError'));
@@ -152,16 +182,29 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
     setLoading(true);
     try {
+      const body: { email: string; code: string; name?: string } = {
+        email,
+        code: otp,
+      };
+
+      if (mode === 'register') {
+        body.name = name;
+      }
+
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: otp }),
+        body: JSON.stringify(body),
       });
 
       if (res.ok) {
         const data = await res.json();
-        clearOtpState(); // Clear saved state on success
-        onLogin({ id: data.user.id, email: data.user.email });
+        clearOtpState();
+        onLogin({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name ?? null,
+        });
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || t('login.verifyError'));
@@ -186,7 +229,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
       if (res.ok) {
         setResendTimer(60);
-        saveOtpState(email);
+        saveOtpState(email, mode, mode === 'register' ? name : undefined);
         setOtp('');
       } else {
         setError(t('login.resendError'));
@@ -205,6 +248,16 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     transitionTo(1);
   };
 
+  const handleTabSwitch = (newMode: Mode) => {
+    if (newMode === mode) return;
+    setMode(newMode);
+    setStep(1);
+    setFadeState('in');
+    setError('');
+    setOtp('');
+    clearOtpState();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       if (step === 1) {
@@ -215,6 +268,8 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     }
   };
 
+  const isLogin = mode === 'login';
+
   return (
     <div dir={dir} className="flex w-full max-w-md items-center justify-center px-4">
       <Card
@@ -224,6 +279,34 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             : 'translate-y-1 opacity-0'
         }`}
       >
+        {/* Tabs */}
+        <div className="flex gap-2 p-4 pb-0">
+          <button
+            type="button"
+            onClick={() => handleTabSwitch('login')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+              isLogin
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            <LogIn className="size-4" />
+            {t('login.loginTab')}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabSwitch('register')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+              !isLogin
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            <UserPlus className="size-4" />
+            {t('login.registerTab')}
+          </button>
+        </div>
+
         <CardHeader className="text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
             {step === 1 ? (
@@ -233,34 +316,59 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             )}
           </div>
           <CardTitle className="text-xl">
-            {step === 1 ? t('login.title') : t('login.otpTitle')}
+            {step === 1
+              ? t(isLogin ? 'login.title' : 'login.registerTab')
+              : t('login.otpTitle')}
           </CardTitle>
           <CardDescription className="text-sm">
-            {step === 1 ? t('login.subtitle') : t('login.otpSubtitle')}
+            {step === 1
+              ? t('login.subtitle')
+              : t('login.otpSubtitle')}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Step 1: Email */}
+          {/* Step 1: Input fields */}
           {step === 1 && (
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('login.emailLabel')}</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t('login.emailPlaceholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={loading}
-                className="h-11"
-                dir="ltr"
-                autoComplete="email"
-              />
+            <div className="space-y-4">
+              {/* Name field — register mode only */}
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="name">{t('login.name')}</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder={t('login.namePlaceholder')}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={loading}
+                    className="h-11"
+                    autoComplete="name"
+                  />
+                </div>
+              )}
+
+              {/* Email field */}
+              <div className="space-y-2">
+                <Label htmlFor="email">{t('login.emailLabel')}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder={t('login.emailPlaceholder')}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={loading}
+                  className="h-11"
+                  dir="ltr"
+                  autoComplete="email"
+                />
+              </div>
             </div>
           )}
 
-          {/* Step 2: OTP */}
+          {/* Step 2: OTP verification */}
           {step === 2 && (
             <div className="flex flex-col items-center gap-6">
               <div dir="ltr">
@@ -285,13 +393,11 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                 </InputOTP>
               </div>
 
-              <p className="text-sm text-muted-foreground">
-                {email}
-              </p>
+              <p className="text-sm text-muted-foreground">{email}</p>
 
               {/* Restored state hint */}
               {restored && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-md px-3 py-1.5">
+                <p className="rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
                   {lang === 'ar'
                     ? '📍 أدخل كود التحقق الذي تم إرساله إلى بريدك الإلكتروني'
                     : '📍 Enter the verification code sent to your email'}
@@ -300,7 +406,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             </div>
           )}
 
-          {/* Error */}
+          {/* Error display */}
           {error && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
               {error}

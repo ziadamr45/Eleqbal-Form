@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// Helper: validate session and return userId or error response
 async function validateSession(request: NextRequest) {
   const sessionCookie = request.cookies.get('session')
   if (!sessionCookie?.value) {
@@ -19,7 +18,6 @@ async function validateSession(request: NextRequest) {
   return { valid: true, userId: session.userId }
 }
 
-// GET: Retrieve student data for the authenticated user
 export async function GET(request: NextRequest) {
   try {
     const auth = await validateSession(request)
@@ -42,7 +40,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Create student data for the authenticated user
 export async function POST(request: NextRequest) {
   try {
     const auth = await validateSession(request)
@@ -51,7 +48,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { fullName, className, parentPhone, parentEmail, gender, whatsapp } = body
 
-    // Validate required fields
     const requiredFields = ['fullName', 'className', 'parentPhone', 'parentEmail', 'gender']
     const missingFields = requiredFields.filter((field) => !body[field] || typeof body[field] !== 'string' || body[field].trim() === '')
 
@@ -62,7 +58,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate email format - Gmail only
     const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i
     if (!emailRegex.test(parentEmail.trim())) {
       return NextResponse.json(
@@ -71,7 +66,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if student data already exists
     const existing = await db.studentData.findUnique({
       where: { userId: auth.userId },
     })
@@ -83,7 +77,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create student data record
     const studentData = await db.studentData.create({
       data: {
         userId: auth.userId,
@@ -109,7 +102,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT: Update student data for the authenticated user
 export async function PUT(request: NextRequest) {
   try {
     const auth = await validateSession(request)
@@ -118,7 +110,6 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { fullName, className, parentPhone, parentEmail, gender, whatsapp } = body
 
-    // Find existing student data
     const existing = await db.studentData.findUnique({
       where: { userId: auth.userId },
     })
@@ -130,7 +121,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Validate parent email if provided - Gmail only
     if (parentEmail !== undefined) {
       const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i
       if (typeof parentEmail !== 'string' || !emailRegex.test(parentEmail.trim())) {
@@ -141,7 +131,6 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Build update payload with only provided fields
     const updateData: Record<string, string | null> = {}
     if (fullName !== undefined) updateData.fullName = fullName.trim()
     if (className !== undefined) updateData.className = className.trim()
@@ -150,7 +139,6 @@ export async function PUT(request: NextRequest) {
     if (gender !== undefined) updateData.gender = gender.trim()
     if (whatsapp !== undefined) updateData.whatsapp = whatsapp ? whatsapp.trim() : null
 
-    // Update student data
     const studentData = await db.studentData.update({
       where: { userId: auth.userId },
       data: updateData,
@@ -164,6 +152,39 @@ export async function PUT(request: NextRequest) {
     console.error('PUT student error:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to update student data' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await validateSession(request)
+    if (!auth.valid) return auth.response!
+
+    const existing = await db.studentData.findUnique({
+      where: { userId: auth.userId },
+    })
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'No student data found to delete' },
+        { status: 404 }
+      )
+    }
+
+    await db.studentData.delete({
+      where: { userId: auth.userId },
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Student data deleted successfully',
+    })
+  } catch (error) {
+    console.error('DELETE student error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete student data' },
       { status: 500 }
     )
   }

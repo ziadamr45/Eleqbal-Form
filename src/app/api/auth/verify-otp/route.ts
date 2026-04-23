@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, code } = body
+    const { email, code, name } = body
 
     // Validate input
     if (!email || typeof email !== 'string') {
@@ -57,12 +57,20 @@ export async function POST(request: NextRequest) {
     let isNewUser = false
     if (!user) {
       user = await db.user.create({
-        data: { email },
+        data: { email, name: name || null },
       })
       isNewUser = true
+    } else {
+      // Update name if registering with a new name
+      if (name) {
+        user = await db.user.update({
+          where: { id: user.id },
+          data: { name: name || user.name },
+        })
+      }
     }
 
-    // Create session with random token (30 days expiry)
+    // Create session
     const token = crypto.randomUUID()
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
@@ -80,13 +88,14 @@ export async function POST(request: NextRequest) {
       user: {
         id: user.id,
         email: user.email,
+        name: user.name,
       },
       isNewUser,
     })
 
     response.cookies.set('session', token, {
       path: '/',
-      maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
+      maxAge: 30 * 24 * 60 * 60,
       httpOnly: true,
       sameSite: 'lax',
     })

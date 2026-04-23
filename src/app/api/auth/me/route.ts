@@ -3,7 +3,6 @@ import { db } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    // Read session token from cookies
     const sessionCookie = request.cookies.get('session')
     if (!sessionCookie?.value) {
       return NextResponse.json(
@@ -12,7 +11,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Find valid (non-expired) session
     const session = await db.session.findUnique({
       where: { token: sessionCookie.value },
       include: {
@@ -36,6 +34,7 @@ export async function GET(request: NextRequest) {
       user: {
         id: session.user.id,
         email: session.user.email,
+        name: session.user.name,
         student: session.user.student,
       },
     })
