@@ -198,8 +198,12 @@ export default function HomePage() {
   // ─── Loading Skeleton ───
   if (loading) {
     return (
-      <div dir={dir} className="min-h-screen flex flex-col bg-background bg-animated">
-        <div className="bg-orb-mid" />
+      <div dir={dir} className="min-h-screen flex flex-col premium-bg">
+        {/* Premium Background Layers */}
+        <div className="bg-glow bg-glow-tl" />
+        <div className="bg-glow bg-glow-br" />
+        <div className="bg-glow bg-glow-center" />
+        <div className="bg-grain" />
         <Header isLoggedIn={false} onLogout={handleLogout} />
         <main className="flex-1 flex items-center justify-center">
           <div className="w-full max-w-md mx-auto px-4 space-y-4">
@@ -217,8 +221,12 @@ export default function HomePage() {
   // ─── Not Authenticated ───
   if (!user) {
     return (
-      <div dir={dir} className="min-h-screen flex flex-col bg-background bg-animated">
-        <div className="bg-orb-mid" />
+      <div dir={dir} className="min-h-screen flex flex-col premium-bg">
+        {/* Premium Background Layers */}
+        <div className="bg-glow bg-glow-tl" />
+        <div className="bg-glow bg-glow-br" />
+        <div className="bg-glow bg-glow-center" />
+        <div className="bg-grain" />
         <Header isLoggedIn={false} onLogout={handleLogout} />
         <main className="flex-1 flex items-center justify-center py-8 px-4">
           <motion.div
@@ -236,8 +244,12 @@ export default function HomePage() {
 
   // ─── Authenticated ───
   return (
-    <div dir={dir} className="min-h-screen flex flex-col bg-background bg-animated">
-      <div className="bg-orb-mid" />
+    <div dir={dir} className="min-h-screen flex flex-col premium-bg">
+      {/* Premium Background Layers */}
+      <div className="bg-glow bg-glow-tl" />
+      <div className="bg-glow bg-glow-br" />
+      <div className="bg-glow bg-glow-center" />
+      <div className="bg-grain" />
       <Header isLoggedIn={true} isAdmin={user.role === 'admin'} onLogout={handleLogout} />
 
       {/* Notification Bell (floating for students) */}

@@ -169,116 +169,256 @@ html.transitioning *::after {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Animated Premium Background
-   Pure CSS floating gradient orbs — GPU-accelerated, lightweight
+   Dynamic Premium Background System
+   Multi-layered CSS gradient system — GPU-accelerated, zero JS
    ══════════════════════════════════════════════════════════════ */
 
-.bg-animated {
+/* ── Base Container ── */
+.premium-bg {
   position: relative;
   overflow: hidden;
+  min-height: 100vh;
 }
 
-.bg-animated::before,
-.bg-animated::after {
+/* ── Light Mode Base ── */
+.premium-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 20%, oklch(0.96 0.025 75 / 60%), transparent),
+    radial-gradient(ellipse 70% 50% at 85% 80%, oklch(0.95 0.02 60 / 50%), transparent),
+    radial-gradient(ellipse 90% 40% at 50% 100%, oklch(0.94 0.03 85 / 40%), transparent),
+    linear-gradient(180deg, oklch(0.985 0.003 90) 0%, oklch(0.97 0.008 80) 50%, oklch(0.965 0.012 75) 100%);
+}
+
+/* ── Dark Mode Base — deep navy with warm undertones ── */
+.dark .premium-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, oklch(0.18 0.04 260 / 80%), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 100%, oklch(0.20 0.03 35 / 60%), transparent),
+    radial-gradient(ellipse 100% 60% at 50% 50%, oklch(0.14 0.015 250 / 90%), transparent),
+    linear-gradient(160deg, oklch(0.12 0.02 260) 0%, oklch(0.10 0.015 255) 40%, oklch(0.08 0.01 250) 100%);
+}
+
+/* ── Animated Floating Orbs (pseudo-elements) ── */
+.premium-bg::before,
+.premium-bg::after {
   content: "";
   position: fixed;
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  filter: blur(80px);
-  opacity: 0.35;
   will-change: transform;
+  transition: opacity 0.8s ease, background 0.8s ease;
 }
 
-/* Light mode orbs */
-.bg-animated::before {
+/* ── Light Mode Orbs ── */
+.premium-bg::before {
+  width: 600px;
+  height: 600px;
+  top: -15%;
+  right: -10%;
+  background: radial-gradient(circle, oklch(0.92 0.06 65 / 0.45), oklch(0.95 0.04 70 / 0.15) 40%, transparent 70%);
+  filter: blur(60px);
+  animation: orb-drift-1 25s ease-in-out infinite;
+}
+
+.premium-bg::after {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, oklch(0.78 0.12 160), transparent 70%);
-  top: -10%;
-  right: -5%;
-  animation: float-1 20s ease-in-out infinite;
+  bottom: -10%;
+  left: -8%;
+  background: radial-gradient(circle, oklch(0.90 0.08 55 / 0.35), oklch(0.93 0.05 60 / 0.12) 45%, transparent 70%);
+  filter: blur(70px);
+  animation: orb-drift-2 30s ease-in-out infinite;
 }
 
-.bg-animated::after {
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, oklch(0.82 0.08 230), transparent 70%);
-  bottom: -8%;
-  left: -5%;
-  animation: float-2 25s ease-in-out infinite;
+/* ── Dark Mode Orbs — warm copper/amber glow ── */
+.dark .premium-bg::before {
+  width: 700px;
+  height: 700px;
+  top: -20%;
+  right: -15%;
+  background: radial-gradient(circle, oklch(0.35 0.12 40 / 0.25), oklch(0.22 0.06 30 / 0.10) 50%, transparent 70%);
+  filter: blur(90px);
+  animation: orb-drift-1 28s ease-in-out infinite;
 }
 
-/* Dark mode orbs — softer, more subtle */
-.dark .bg-animated::before {
-  opacity: 0.12;
-  background: radial-gradient(circle, oklch(0.45 0.15 160), transparent 70%);
+.dark .premium-bg::after {
+  width: 550px;
+  height: 550px;
+  bottom: -15%;
+  left: -10%;
+  background: radial-gradient(circle, oklch(0.30 0.10 50 / 0.18), oklch(0.18 0.05 40 / 0.08) 50%, transparent 70%);
   filter: blur(100px);
+  animation: orb-drift-2 32s ease-in-out infinite;
 }
 
-.dark .bg-animated::after {
-  opacity: 0.08;
-  background: radial-gradient(circle, oklch(0.35 0.12 250), transparent 70%);
-  filter: blur(120px);
-}
-
-/* Floating animations */
-@keyframes float-1 {
+/* ── Orb Drift Animations ── */
+@keyframes orb-drift-1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  25%      { transform: translate(-40px, 30px) scale(1.05); }
-  50%      { transform: translate(20px, 60px) scale(0.95); }
-  75%      { transform: translate(30px, -20px) scale(1.02); }
+  20%      { transform: translate(-30px, 40px) scale(1.08); }
+  40%      { transform: translate(20px, 70px) scale(0.95); }
+  60%      { transform: translate(-15px, 30px) scale(1.04); }
+  80%      { transform: translate(25px, -15px) scale(1.02); }
 }
 
-@keyframes float-2 {
+@keyframes orb-drift-2 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  25%      { transform: translate(30px, -40px) scale(0.97); }
-  50%      { transform: translate(-20px, -60px) scale(1.04); }
-  75%      { transform: translate(-30px, 20px) scale(0.98); }
+  25%      { transform: translate(40px, -30px) scale(1.06); }
+  50%      { transform: translate(-25px, -50px) scale(0.94); }
+  75%      { transform: translate(15px, -20px) scale(1.03); }
 }
 
-/* Third orb — extra ambient glow (middle area) */
-.bg-animated > .bg-orb-mid {
+/* ── Corner Glow Effects (fixed accent lights) ── */
+.bg-glow {
   position: fixed;
-  width: 300px;
-  height: 300px;
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  background: radial-gradient(circle, oklch(0.75 0.1 50), transparent 70%);
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  opacity: 0.2;
-  filter: blur(70px);
-  animation: float-3 30s ease-in-out infinite;
   will-change: transform;
+  transition: opacity 0.8s ease, background 0.8s ease;
 }
 
-.dark .bg-orb-mid {
-  opacity: 0.06;
-  background: radial-gradient(circle, oklch(0.40 0.1 50), transparent 70%);
+/* Top-left corner warm glow */
+.bg-glow-tl {
+  width: 400px;
+  height: 400px;
+  top: -120px;
+  left: -100px;
+  background: radial-gradient(circle, oklch(0.93 0.07 75 / 0.3), transparent 70%);
+  filter: blur(50px);
+  animation: glow-pulse-tl 20s ease-in-out infinite;
+}
+
+.dark .bg-glow-tl {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, oklch(0.28 0.08 30 / 0.2), transparent 70%);
+  filter: blur(80px);
+}
+
+/* Bottom-right corner warm glow */
+.bg-glow-br {
+  width: 350px;
+  height: 350px;
+  bottom: -100px;
+  right: -80px;
+  background: radial-gradient(circle, oklch(0.91 0.06 80 / 0.25), transparent 70%);
+  filter: blur(55px);
+  animation: glow-pulse-br 22s ease-in-out infinite;
+}
+
+.dark .bg-glow-br {
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, oklch(0.25 0.07 45 / 0.15), transparent 70%);
+  filter: blur(85px);
+}
+
+/* Center ambient orb */
+.bg-glow-center {
+  width: 500px;
+  height: 500px;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, oklch(0.94 0.04 85 / 0.2), transparent 65%);
+  filter: blur(60px);
+  animation: glow-pulse-center 35s ease-in-out infinite;
+}
+
+.dark .bg-glow-center {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, oklch(0.22 0.06 35 / 0.12), transparent 65%);
   filter: blur(90px);
 }
 
-@keyframes float-3 {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  33%      { transform: translate(calc(-50% + 50px), calc(-50% - 30px)) scale(1.08); }
-  66%      { transform: translate(calc(-50% - 40px), calc(-50% + 40px)) scale(0.94); }
+@keyframes glow-pulse-tl {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+  50%      { transform: translate(20px, 15px) scale(1.1); opacity: 1; }
 }
 
-/* Ensure content stays above the background */
-/* Exclude .bg-orb-mid (decorative orb) and .notif-bell (fixed-position floating button) */
-.bg-animated > *:not(.bg-orb-mid):not(.notif-bell) {
+@keyframes glow-pulse-br {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50%      { transform: translate(-15px, -20px) scale(1.08); opacity: 1; }
+}
+
+@keyframes glow-pulse-center {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+  33%      { transform: translate(calc(-50% + 40px), calc(-50% - 30px)) scale(1.05); opacity: 0.8; }
+  66%      { transform: translate(calc(-50% - 30px), calc(-50% + 25px)) scale(0.95); opacity: 0.7; }
+}
+
+/* ── Subtle Grain Texture Overlay ── */
+.bg-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  mix-blend-mode: overlay;
+  transition: opacity 0.8s ease;
+}
+
+.dark .bg-grain {
+  opacity: 0.04;
+  mix-blend-mode: soft-light;
+}
+
+/* ── Ensure content stays above background ── */
+.premium-bg > *:not(.bg-glow):not(.bg-grain):not(.notif-bell) {
   position: relative;
   z-index: 1;
 }
 
-/* Respect reduced motion preference */
+/* ── Smooth theme transition for background layers ── */
+.premium-bg,
+.premium-bg::before,
+.premium-bg::after,
+.bg-glow,
+.bg-grain {
+  transition: background 0.6s ease, opacity 0.6s ease, filter 0.6s ease;
+}
+
+/* ── Respect reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
-  .bg-animated::before,
-  .bg-animated::after,
-  .bg-orb-mid {
+  .premium-bg::before,
+  .premium-bg::after,
+  .bg-glow-tl,
+  .bg-glow-br,
+  .bg-glow-center {
     animation: none !important;
+  }
+}
+
+/* ── Mobile optimization ── */
+@media (max-width: 640px) {
+  .premium-bg::before {
+    width: 350px;
+    height: 350px;
+  }
+  .premium-bg::after {
+    width: 300px;
+    height: 300px;
+  }
+  .dark .premium-bg::before {
+    width: 400px;
+    height: 400px;
+  }
+  .dark .premium-bg::after {
+    width: 350px;
+    height: 350px;
+  }
+  .bg-glow-tl,
+  .bg-glow-br {
+    width: 250px;
+    height: 250px;
+  }
+  .bg-glow-center {
+    width: 300px;
+    height: 300px;
   }
 }
