@@ -450,33 +450,32 @@ export default function AdminDashboard() {
               {/* Recent Activity Feed */}
               <ActivityFeed lang={lang} t={t} parseCN={parseCN} />
 
-              {/* System Overview */}
-              <Card className="shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Database className="size-4 text-emerald-600" />
-                    {lang === 'ar' ? 'نظرة عامة على النظام' : 'System Overview'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {stats && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
-                        <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalStudents}</p>
-                        <p className="text-xs text-emerald-600 dark:text-emerald-400">{lang === 'ar' ? 'طالب مسجل' : 'Students'}</p>
-                      </div>
-                      <div className="rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 p-3 text-center">
-                        <p className="text-2xl font-bold text-sky-700 dark:text-sky-300">{stats.totalUsers}</p>
-                        <p className="text-xs text-sky-600 dark:text-sky-400">{lang === 'ar' ? 'مستخدم' : 'Users'}</p>
-                      </div>
-                      <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 text-center">
-                        <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.studentsByClass.length}</p>
-                        <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'ar' ? 'فصل دراسي' : 'Classes'}</p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Quick Stats */}
+              {stats && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalStudents}</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">{lang === 'ar' ? 'إجمالي الطلاب' : 'Total'}</p>
+                  </div>
+                  <div className="rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 p-3 text-center">
+                    <p className="text-2xl font-bold text-sky-700 dark:text-sky-300">{stats.maleCount}</p>
+                    <p className="text-xs text-sky-600 dark:text-sky-400">{lang === 'ar' ? 'ذكور' : 'Male'}</p>
+                  </div>
+                  <div className="rounded-xl bg-pink-50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-800 p-3 text-center">
+                    <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">{stats.femaleCount}</p>
+                    <p className="text-xs text-pink-600 dark:text-pink-400">{lang === 'ar' ? 'إناث' : 'Female'}</p>
+                  </div>
+                  <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 text-center">
+                    <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.studentsByClass.length}</p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'ar' ? 'فصل' : 'Classes'}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Charts Section */}
+              {stats && stats.studentsByClass.length > 0 && (
+                <ChartsSection stats={stats} lang={lang} t={t} parseCN={parseCN} />
+              )}
 
               {/* Admin List */}
               <Card className="shadow-sm">
@@ -585,34 +584,7 @@ export default function AdminDashboard() {
           {/* Show data tab content only on data tab */}
           {activeTab === 'data' && (
             <>
-              {/* Quick Stats */}
-          {stats && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
-                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalStudents}</p>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400">{lang === 'ar' ? 'إجمالي الطلاب' : 'Total'}</p>
-              </div>
-              <div className="rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 p-3 text-center">
-                <p className="text-2xl font-bold text-sky-700 dark:text-sky-300">{stats.maleCount}</p>
-                <p className="text-xs text-sky-600 dark:text-sky-400">{lang === 'ar' ? 'ذكور' : 'Male'}</p>
-              </div>
-              <div className="rounded-xl bg-pink-50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-800 p-3 text-center">
-                <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">{stats.femaleCount}</p>
-                <p className="text-xs text-pink-600 dark:text-pink-400">{lang === 'ar' ? 'إناث' : 'Female'}</p>
-              </div>
-              <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 text-center">
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{stats.studentsByClass.length}</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'ar' ? 'فصل' : 'Classes'}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Charts Section */}
-          {stats && stats.studentsByClass.length > 0 && (
-            <ChartsSection stats={stats} lang={lang} t={t} parseCN={parseCN} />
-          )}
-
-          {/* Class Quick Filter Chips */}
+              {/* Class Quick Filter Chips */}
           {stats && stats.studentsByClass.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <button onClick={() => { setGradeFilter(''); setSectionFilter(''); }}
