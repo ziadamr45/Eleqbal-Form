@@ -130,23 +130,6 @@ export default function AdminDashboard() {
     finally { setLoading(false); }
   }, [search, gradeFilter, sectionFilter, genderFilter, sort, page]);
 
-  useEffect(() => { checkAuth(); }, [checkAuth]);
-  useEffect(() => {
-    if (authed) { fetchStats(); fetchStudents(); fetchSentNotifs(); fetchAdminEmails(); }
-  }, [authed, fetchStats, fetchStudents, fetchSentNotifs, fetchAdminEmails]);
-  useEffect(() => { setPage(1); }, [search, gradeFilter, sectionFilter, genderFilter, sort]);
-
-  // ── Helpers ──
-  const handleLogout = async () => {
-    setShowLogoutConfirm(false);
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/');
-  };
-
-  const parseCN = (cn: string) => { const [g, s] = (cn || '/').split('/'); return `${t(`grades.${g}`)} - ${t(`sections.${s}`)}`; };
-  const cn = (g: string, s: string) => `${g}/${s}`;
-  const refresh = () => { fetchStudents(); fetchStats(); };
-
   // ── Fetch Admin Emails ──
   const fetchAdminEmails = useCallback(async () => {
     setLoadingAdmins(true);
@@ -167,6 +150,23 @@ export default function AdminDashboard() {
       if (res.ok) setSentNotifs((await res.json()).notifications);
     } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => { checkAuth(); }, [checkAuth]);
+  useEffect(() => {
+    if (authed) { fetchStats(); fetchStudents(); fetchSentNotifs(); fetchAdminEmails(); }
+  }, [authed, fetchStats, fetchStudents, fetchSentNotifs, fetchAdminEmails]);
+  useEffect(() => { setPage(1); }, [search, gradeFilter, sectionFilter, genderFilter, sort]);
+
+  // ── Helpers ──
+  const handleLogout = async () => {
+    setShowLogoutConfirm(false);
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/');
+  };
+
+  const parseCN = (cn: string) => { const [g, s] = (cn || '/').split('/'); return `${t(`grades.${g}`)} - ${t(`sections.${s}`)}`; };
+  const cn = (g: string, s: string) => `${g}/${s}`;
+  const refresh = () => { fetchStudents(); fetchStats(); };
 
   // ── Send Notification ──
   const handleSendNotif = async () => {
