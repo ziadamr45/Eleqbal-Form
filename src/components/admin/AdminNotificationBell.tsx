@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Bell, X, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, X, CheckCheck } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 
@@ -15,14 +15,15 @@ interface AdminNotification {
 }
 
 export default function AdminNotificationBell() {
-  const { lang } = useLanguage();
+  const { lang, dir } = useLanguage();
   const t = getT(lang);
+  const isRTL = dir === 'rtl';
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [panelPos, setPanelPos] = useState({ top: 0, right: 0 });
+  const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
 
   const fetchNotifs = async () => {
     try {
@@ -39,11 +40,25 @@ export default function AdminNotificationBell() {
   const updatePanelPosition = useCallback(() => {
     if (!buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
+    const panelWidth = window.innerWidth >= 640 ? 384 : 320; // sm:w-96 = 384px, w-80 = 320px
+    // Always align the panel to the button's right edge (or left edge in RTL)
+    let leftPos: number;
+    if (isRTL) {
+      // In RTL, the button is on the right side - align panel's right edge to button's right edge
+      leftPos = Math.max(8, rect.right - panelWidth);
+    } else {
+      // In LTR, the button is on the left side - align panel's left edge to button's left edge
+      leftPos = Math.min(rect.left, window.innerWidth - panelWidth - 8);
+    }
+    // Clamp to not overflow right edge
+    leftPos = Math.min(leftPos, window.innerWidth - panelWidth - 8);
+    leftPos = Math.max(leftPos, 8);
+
     setPanelPos({
       top: rect.bottom + 8,
-      right: window.innerWidth - rect.right,
+      left: leftPos,
     });
-  }, []);
+  }, [isRTL]);
 
   useEffect(() => { fetchNotifs(); }, []);
 
@@ -107,7 +122,7 @@ export default function AdminNotificationBell() {
       >
         <Bell className="size-5" />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold">
+          <span className={`absolute -top-0.5 ${isRTL ? '-left-0.5' : '-right-0.5'} flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold`}>
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -117,7 +132,7 @@ export default function AdminNotificationBell() {
         <div
           ref={panelRef}
           className="fixed w-80 sm:w-96 bg-card border rounded-xl shadow-xl z-[100] overflow-hidden"
-          style={{ top: panelPos.top, right: panelPos.right }}
+          style={{ top: panelPos.top, left: panelPos.left }}
         >
           <div className="flex items-center justify-between p-3 border-b bg-muted/30">
             <h3 className="text-sm font-semibold flex items-center gap-2">
