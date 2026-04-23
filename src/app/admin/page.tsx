@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound } from 'lucide-react';
+import { Loader2, Users, Shield, Search, Trash2, Pencil, X, ChevronLeft, ChevronRight, School, LogOut, Menu, ArrowUpDown, RefreshCw, CheckCircle2, FileSpreadsheet, Plus, UserPlus, Eye, Download, Filter, Bell, Megaphone, Send, Settings, Database, UserCog, TriangleAlert, KeyRound, Clock, Zap } from 'lucide-react';
 import { useLanguage, getT } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,7 +75,8 @@ export default function AdminDashboard() {
   const [notifTarget, setNotifTarget] = useState<'all' | 'student'>('all');
   const [notifTargetStudent, setNotifTargetStudent] = useState('');
   const [sending, setSending] = useState(false);
-  const [sentNotifs, setSentNotifs] = useState<{ id: string; title: string; message: string; sentToAll: boolean; targetName: string | null; recipientCount: number; createdAt: string }[]>([]);
+  const [sentNotifs, setSentNotifs] = useState<{ id: string; title: string; message: string; sentToAll: boolean; targetName: string | null; recipientCount: number; createdAt: string; status: string; scheduledAt: string | null; sentAt: string | null }[]>([]);
+  const [notifSchedule, setNotifSchedule] = useState('');
   const [activeTab, setActiveTab] = useState<'data' | 'notif' | 'control'>('data');
 
   // Logout confirmation
@@ -182,13 +183,18 @@ export default function AdminDashboard() {
     try {
       const body: Record<string, unknown> = { title: notifTitle, message: notifMessage, sentToAll: notifTarget === 'all' };
       if (notifTarget === 'student') body.targetUserId = notifTargetStudent;
+      if (notifSchedule) body.scheduledAt = new Date(notifSchedule).toISOString();
       const res = await fetch('/api/admin/notifications', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       if (res.ok) {
         const data = await res.json();
-        toast.success(lang === 'ar' ? `تم إرسال الإشعار إلى ${data.sentTo} مستخدم` : `Sent to ${data.sentTo} users`);
-        setShowNotif(false); setNotifTitle(''); setNotifMessage(''); setNotifTargetStudent('');
+        if (data.scheduled) {
+          toast.success(lang === 'ar' ? 'تم جدولة الإشعار بنجاح' : 'Notification scheduled successfully');
+        } else {
+          toast.success(lang === 'ar' ? `تم إرسال الإشعار إلى ${data.sentTo} مستخدم` : `Sent to ${data.sentTo} users`);
+        }
+        setShowNotif(false); setNotifTitle(''); setNotifMessage(''); setNotifTargetStudent(''); setNotifSchedule('');
         fetchSentNotifs();
       } else { const d = await res.json().catch(() => ({})); toast.error(d.error || 'Error'); }
     } catch { toast.error('Error'); }
@@ -438,9 +444,14 @@ export default function AdminDashboard() {
                       <Megaphone className="size-4 text-emerald-600" />
                       {lang === 'ar' ? 'إرسال إشعار' : 'Send Notification'}
                     </CardTitle>
-                    <Button size="sm" onClick={() => setShowNotif(true)} className="gap-1.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
-                      <Send className="size-3.5" /> {lang === 'ar' ? 'إشعار جديد' : 'New'}
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+                        <Zap className="size-3" /> Push
+                      </span>
+                      <Button size="sm" onClick={() => setShowNotif(true)} className="gap-1.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                        <Send className="size-3.5" /> {lang === 'ar' ? 'إشعار جديد' : 'New'}
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -459,13 +470,23 @@ export default function AdminDashboard() {
                                 <p className="font-medium text-sm">{n.title}</p>
                                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
                               </div>
-                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${n.sentToAll ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                {n.sentToAll ? (lang === 'ar' ? 'الجميع' : 'All') : n.targetName}
-                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {n.status === 'scheduled' && (
+                                  <span className="rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[10px] font-medium flex items-center gap-1">
+                                    <Clock className="size-3" /> {lang === 'ar' ? 'مجدول' : 'Scheduled'}
+                                  </span>
+                                )}
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${n.sentToAll ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                  {n.sentToAll ? (lang === 'ar' ? 'الجميع' : 'All') : n.targetName}
+                                </span>
+                              </div>
                             </div>
                             <p className="text-[10px] text-muted-foreground mt-1">
-                              {new Date(n.createdAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              {' · '}{n.recipientCount} {lang === 'ar' ? 'مستخدم' : 'users'}
+                              {n.status === 'scheduled' && n.scheduledAt
+                                ? <><Clock className="inline size-3 me-0.5" />{new Date(n.scheduledAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
+                                : new Date(n.createdAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              }
+                              {n.status === 'sent' && n.recipientCount > 0 && <>{' · '}{n.recipientCount} {lang === 'ar' ? 'مستخدم' : 'users'} {lang === 'ar' ? '+ Push' : '+ Push'}</>}
                             </p>
                           </div>
                         ))}
@@ -782,6 +803,21 @@ export default function AdminDashboard() {
                 </Select>
               </div>
             )}
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1.5">
+                <Clock className="size-3" /> {lang === 'ar' ? 'جدولة الإرسال (اختياري)' : 'Schedule (optional)'}
+              </Label>
+              <Input
+                type="datetime-local"
+                value={notifSchedule}
+                onChange={(e) => setNotifSchedule(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+                className="h-9 text-sm"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {lang === 'ar' ? 'اتركه فارغ للإرسال الفوري. الإشعار المجدول يتبعت كـ Web Push للطلاب المشتركين.' : 'Leave empty for instant send. Scheduled notifications are delivered as Web Push to subscribed students.'}
+              </p>
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowNotif(false)}>{t('form.cancel')}</Button>

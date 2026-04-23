@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAdminUser, adminUnauthorized } from '@/lib/admin-auth'
+import { sendPushToUser, sendPushToAll } from '@/lib/push'
 
-// POST: Send notification (to all or specific user)
+// POST: Send notification (to all or specific user) with scheduling support
 export async function POST(request: NextRequest) {
   try {
     const admin = await getAdminUser(request)
     if (!admin) return adminUnauthorized()
 
     const body = await request.json()
-    const { title, message, targetUserId, sentToAll } = body
+    const { title, message, targetUserId, sentToAll, scheduledAt } = body
 
     if (!title || !message) {
       return NextResponse.json({ success: false, error: 'Title and message are required' }, { status: 400 })
@@ -17,6 +18,20 @@ export async function POST(request: NextRequest) {
 
     if (!sentToAll && !targetUserId) {
       return NextResponse.json({ success: false, error: 'Must specify target user or send to all' }, { status: 400 })
+    }
+
+    // Parse scheduled date if provided
+    let scheduledDate: Date | null = null
+    let status = 'sent'
+    let sentDate = new Date()
+
+    if (scheduledAt) {
+      scheduledDate = new Date(scheduledAt)
+      // If scheduled for future, set status to 'scheduled'
+      if (scheduledDate > new Date()) {
+        status = 'scheduled'
+        sentDate = null as unknown as Date
+      }
     }
 
     // Create notification
@@ -27,12 +42,24 @@ export async function POST(request: NextRequest) {
         sentByAdminId: admin.id,
         targetUserId: sentToAll ? null : targetUserId,
         sentToAll: !!sentToAll,
+        status,
+        scheduledAt: scheduledDate,
+        sentAt: status === 'sent' ? sentDate : null,
       },
     })
 
-    // Create recipient entries
+    // If scheduled for future, don't create recipients yet
+    if (status === 'scheduled') {
+      return NextResponse.json({
+        success: true,
+        sentTo: 0,
+        scheduled: true,
+        scheduledAt: scheduledDate.toISOString(),
+      })
+    }
+
+    // Create recipient entries and send push
     if (sentToAll) {
-      // Send to all student users
       const students = await db.user.findMany({
         where: { role: 'student' },
         select: { id: true },
@@ -47,14 +74,28 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      return NextResponse.json({ success: true, sentTo: students.length })
+      // Send Web Push to all subscribed users
+      const pushCount = await sendPushToAll(title, message)
+
+      return NextResponse.json({
+        success: true,
+        sentTo: students.length,
+        pushDelivered: pushCount,
+      })
     } else {
       // Send to specific user
       await db.userNotification.create({
         data: { userId: targetUserId, notificationId: notification.id },
       })
 
-      return NextResponse.json({ success: true, sentTo: 1 })
+      // Send Web Push to specific user
+      const pushSent = await sendPushToUser(targetUserId, title, message)
+
+      return NextResponse.json({
+        success: true,
+        sentTo: 1,
+        pushDelivered: pushSent ? 1 : 0,
+      })
     }
   } catch (error) {
     console.error('Send notification error:', error)
@@ -85,6 +126,9 @@ export async function GET(request: NextRequest) {
         title: n.title,
         message: n.message,
         sentToAll: n.sentToAll,
+        status: n.status,
+        scheduledAt: n.scheduledAt,
+        sentAt: n.sentAt,
         targetName: n.targetUser ? (n.targetUser.student?.fullName || n.targetUser.name || n.targetUser.email) : null,
         recipientCount: n._count.recipients,
         createdAt: n.createdAt,

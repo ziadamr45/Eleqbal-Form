@@ -19,6 +19,7 @@ model User {
   notifications UserNotification[]
   sentNotifications Notification[] @relation("SentNotifications")
   receivedNotifications Notification[] @relation("ReceivedNotifications")
+  pushSubscriptions PushSubscription[]
 }
 
 model Otp {
@@ -54,16 +55,19 @@ model StudentData {
 }
 
 model Notification {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   title          String
   message        String
   sentByAdminId  String
-  sentByAdmin    User     @relation("SentNotifications", fields: [sentByAdminId], references: [id])
+  sentByAdmin    User      @relation("SentNotifications", fields: [sentByAdminId], references: [id])
   targetUserId   String?
-  targetUser     User?    @relation("ReceivedNotifications", fields: [targetUserId], references: [id], onDelete: Cascade)
-  sentToAll      Boolean  @default(false)
+  targetUser     User?     @relation("ReceivedNotifications", fields: [targetUserId], references: [id], onDelete: Cascade)
+  sentToAll      Boolean   @default(false)
+  status         String    @default("sent")
+  scheduledAt    DateTime?
+  sentAt         DateTime?
   recipients     UserNotification[]
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 }
 
 model UserNotification {
@@ -76,4 +80,15 @@ model UserNotification {
   createdAt      DateTime @default(now())
 
   @@unique([userId, notificationId])
+}
+
+model PushSubscription {
+  id      String   @id @default(cuid())
+  userId  String
+   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint      String
+  p256dh        String
+  auth          String
+  createdAt     DateTime @default(now())
+  @@unique([userId, endpoint])
 }

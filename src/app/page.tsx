@@ -31,6 +31,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [editing, setEditing] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
   const { lang, dir } = useLanguage();
   const t = getT(lang);
 
@@ -103,6 +104,65 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // ── Register Service Worker & Push Notifications ──
+  const registerPush = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return;
+
+    try {
+      // Register service worker
+      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+      // Check existing subscription
+      const existingSub = await registration.pushManager.getSubscription();
+      if (existingSub) {
+        setPushEnabled(true);
+        return;
+      }
+
+      // Request notification permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+
+      // Subscribe to push
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+
+      // Send subscription to server
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription }),
+      });
+
+      if (res.ok) setPushEnabled(true);
+    } catch (err) {
+      console.warn('[Push] Registration failed:', err);
+    }
+  }, []);
+
+  // Register push when user logs in as student
+  useEffect(() => {
+    if (user?.role === 'student') registerPush();
+  }, [user, registerPush]);
+
+  // Helper: convert VAPID key to Uint8Array
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
   const handleLogin = useCallback(() => { checkAuth(); }, [checkAuth]);
   const handleLogout = useCallback(async () => {
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* Ignore */ }
@@ -163,7 +223,7 @@ export default function HomePage() {
           {/* Bell Button */}
           <button onClick={() => setNotifOpen(!notifOpen)}
             className="relative flex h-10 w-10 items-center justify-center rounded-full bg-card border shadow-lg hover:bg-muted transition-colors">
-            <Bell className="size-5 text-foreground" />
+            <Bell className={`size-5 ${pushEnabled ? 'text-emerald-600' : 'text-foreground'}`} />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                 {unreadCount > 9 ? '9+' : unreadCount}
