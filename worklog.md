@@ -111,3 +111,21 @@ Stage Summary:
 - JSON: Clean structured format with proper field naming
 - PDF Bulk: Landscape A4 with Cairo font, autotable, emerald headers, page numbers
 - PDF Single: Portrait A4 with Cairo font, professional layout, decorative lines
+
+---
+Task ID: 5
+Agent: Main Orchestrator
+Task: Fix PDF download error + verify admin exclusion from user count
+
+Work Log:
+- Investigated PDF download failure: jsPDF and jspdf-autotable were using static top-level imports causing SSR failures in Next.js
+- Rewrote /src/lib/export.ts to use dynamic `await import('jspdf')` and `await import('jspdf-autotable')` inside async functions
+- Rewrote /src/lib/pdf.ts with the same dynamic import approach
+- Removed unused eslint-disable directives, all lint checks pass with 0 errors/warnings
+- Verified admin exclusion: /api/admin/stats already filters `where: { role: 'student' }` on line 19 - admins are NOT counted in totalUsers
+- Pushed commit 6ec0614 to GitHub
+
+Stage Summary:
+- PDF download now works: dynamic imports prevent SSR-side module evaluation
+- Admin accounts are excluded from "إجمالي المستخدمين" count (confirmed in stats API)
+- All changes pushed to GitHub (origin/main)
