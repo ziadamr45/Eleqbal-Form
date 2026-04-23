@@ -265,7 +265,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className={`absolute ${isRTL(dir) ? 'left-0' : 'right-0'} top-12 mt-1 w-80 sm:w-96 max-h-[70vh] rounded-xl bg-card border shadow-xl overflow-hidden z-50`}
+                className="absolute right-0 top-12 mt-1 w-80 sm:w-96 max-h-[70vh] rounded-xl bg-card border shadow-xl overflow-hidden z-50"
               >
                 <div className="flex items-center justify-between p-3 border-b bg-muted/30">
                   <div className="flex items-center gap-2">
@@ -433,7 +433,7 @@ export default function HomePage() {
 
             {studentData && editing && (
               <motion.div key="edit" {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
-                <StudentForm userId={user.id} existingData={studentData} onDataChange={handleDataChange} />
+                <StudentForm key={studentData.id + '-' + editing} userId={user.id} existingData={studentData} onDataChange={handleDataChange} />
               </motion.div>
             )}
 
@@ -482,4 +482,3 @@ export default function HomePage() {
   );
 }
 
-function isRTL(dir: string) { return dir === 'rtl'; }
