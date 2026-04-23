@@ -169,36 +169,44 @@ html.transitioning *::after {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Dynamic Premium Background System
-   Multi-layered CSS gradient system — GPU-accelerated, zero JS
+   Dynamic Premium Background System v2
+   Clearly visible animated gradients — alive & premium
    ══════════════════════════════════════════════════════════════ */
 
 /* ── Base Container ── */
 .premium-bg {
   position: relative;
-  overflow: hidden;
   min-height: 100vh;
 }
 
-/* ── Light Mode Base ── */
+/* ══════════════════════════════════════════════
+   ☀️ LIGHT MODE — Cool base + warm accent orbs
+   ══════════════════════════════════════════════ */
+
 .premium-bg {
   background:
-    radial-gradient(ellipse 80% 60% at 15% 20%, oklch(0.96 0.025 75 / 60%), transparent),
-    radial-gradient(ellipse 70% 50% at 85% 80%, oklch(0.95 0.02 60 / 50%), transparent),
-    radial-gradient(ellipse 90% 40% at 50% 100%, oklch(0.94 0.03 85 / 40%), transparent),
-    linear-gradient(180deg, oklch(0.985 0.003 90) 0%, oklch(0.97 0.008 80) 50%, oklch(0.965 0.012 75) 100%);
+    /* Base: clean cool gray-white — NO warm tones */
+    linear-gradient(160deg, #f1f5f9, #e8ecf1, #f0f4f8);
+  background-size: 100% 100%;
 }
 
-/* ── Dark Mode Base — deep navy with warm undertones ── */
+/* Dark Mode Static Base */
+
+/* ══════════════════════════════════════════════
+   🌙 DARK MODE — Deep navy, copper glow, alive
+   ══════════════════════════════════════════════ */
+
 .dark .premium-bg {
   background:
-    radial-gradient(ellipse 80% 50% at 10% 0%, oklch(0.18 0.04 260 / 80%), transparent),
-    radial-gradient(ellipse 60% 40% at 90% 100%, oklch(0.20 0.03 35 / 60%), transparent),
-    radial-gradient(ellipse 100% 60% at 50% 50%, oklch(0.14 0.015 250 / 90%), transparent),
-    linear-gradient(160deg, oklch(0.12 0.02 260) 0%, oklch(0.10 0.015 255) 40%, oklch(0.08 0.01 250) 100%);
+    /* Deep navy base — clean, minimal */
+    linear-gradient(135deg, #020617, #0b1a2b, #0a1628);
+  background-size: 100% 100%;
 }
 
-/* ── Animated Floating Orbs (pseudo-elements) ── */
+/* ══════════════════════════════════════════════
+   ✨ Floating Glow Orbs (pseudo-elements)
+   ══════════════════════════════════════════════ */
+
 .premium-bg::before,
 .premium-bg::after {
   content: "";
@@ -207,218 +215,200 @@ html.transitioning *::after {
   pointer-events: none;
   z-index: 0;
   will-change: transform;
-  transition: opacity 0.8s ease, background 0.8s ease;
 }
 
-/* ── Light Mode Orbs ── */
+/* ── Top-Right Orb: warm orange on cool base ── */
 .premium-bg::before {
-  width: 600px;
-  height: 600px;
-  top: -15%;
-  right: -10%;
-  background: radial-gradient(circle, oklch(0.92 0.06 65 / 0.45), oklch(0.95 0.04 70 / 0.15) 40%, transparent 70%);
-  filter: blur(60px);
-  animation: orb-drift-1 25s ease-in-out infinite;
+  width: 450px;
+  height: 450px;
+  top: 5%;
+  right: 5%;
+  background: radial-gradient(circle, rgba(255, 140, 60, 0.55), rgba(255, 160, 100, 0.15) 40%, transparent 65%);
+  filter: blur(25px);
+  animation: orb-float-1 8s ease-in-out infinite;
 }
 
+/* ── Bottom-Left Orb: warm amber ── */
 .premium-bg::after {
-  width: 500px;
-  height: 500px;
-  bottom: -10%;
-  left: -8%;
-  background: radial-gradient(circle, oklch(0.90 0.08 55 / 0.35), oklch(0.93 0.05 60 / 0.12) 45%, transparent 70%);
-  filter: blur(70px);
-  animation: orb-drift-2 30s ease-in-out infinite;
+  width: 400px;
+  height: 400px;
+  bottom: 10%;
+  left: 5%;
+  background: radial-gradient(circle, rgba(255, 170, 100, 0.45), rgba(255, 190, 140, 0.12) 40%, transparent 65%);
+  filter: blur(28px);
+  animation: orb-float-2 10s ease-in-out infinite;
 }
 
-/* ── Dark Mode Orbs — warm copper/amber glow ── */
+/* ── Dark Mode Orbs — stronger & more visible ── */
 .dark .premium-bg::before {
-  width: 700px;
-  height: 700px;
-  top: -20%;
-  right: -15%;
-  background: radial-gradient(circle, oklch(0.35 0.12 40 / 0.25), oklch(0.22 0.06 30 / 0.10) 50%, transparent 70%);
-  filter: blur(90px);
-  animation: orb-drift-1 28s ease-in-out infinite;
+  width: 650px;
+  height: 650px;
+  top: 0%;
+  right: -5%;
+  background: radial-gradient(circle, rgba(255, 140, 80, 0.55), rgba(200, 100, 50, 0.20) 35%, transparent 65%);
+  filter: blur(40px);
+  animation: orb-float-1 7s ease-in-out infinite;
 }
 
 .dark .premium-bg::after {
   width: 550px;
   height: 550px;
-  bottom: -15%;
-  left: -10%;
-  background: radial-gradient(circle, oklch(0.30 0.10 50 / 0.18), oklch(0.18 0.05 40 / 0.08) 50%, transparent 70%);
-  filter: blur(100px);
-  animation: orb-drift-2 32s ease-in-out infinite;
+  bottom: 0%;
+  left: -5%;
+  background: radial-gradient(circle, rgba(100, 140, 255, 0.35), rgba(59, 130, 246, 0.12) 35%, transparent 60%);
+  filter: blur(45px);
+  animation: orb-float-2 9s ease-in-out infinite;
 }
 
-/* ── Orb Drift Animations ── */
-@keyframes orb-drift-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  20%      { transform: translate(-30px, 40px) scale(1.08); }
-  40%      { transform: translate(20px, 70px) scale(0.95); }
-  60%      { transform: translate(-15px, 30px) scale(1.04); }
-  80%      { transform: translate(25px, -15px) scale(1.02); }
+@keyframes orb-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+  25%      { transform: translate(-80px, 60px) scale(1.2); opacity: 0.85; }
+  50%      { transform: translate(40px, 100px) scale(0.85); opacity: 1; }
+  75%      { transform: translate(-30px, 30px) scale(1.1); opacity: 0.9; }
 }
 
-@keyframes orb-drift-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25%      { transform: translate(40px, -30px) scale(1.06); }
-  50%      { transform: translate(-25px, -50px) scale(0.94); }
-  75%      { transform: translate(15px, -20px) scale(1.03); }
+@keyframes orb-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+  20%      { transform: translate(60px, -50px) scale(1.15); opacity: 0.85; }
+  45%      { transform: translate(-50px, -80px) scale(0.8); opacity: 1; }
+  70%      { transform: translate(30px, -25px) scale(1.08); opacity: 0.9; }
 }
 
-/* ── Corner Glow Effects (fixed accent lights) ── */
+/* ══════════════════════════════════════════════
+   🔮 Extra Glow Layers (div elements)
+   ══════════════════════════════════════════════ */
+
 .bg-glow {
   position: fixed;
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
   will-change: transform;
-  transition: opacity 0.8s ease, background 0.8s ease;
 }
 
-/* Top-left corner warm glow */
-.bg-glow-tl {
-  width: 400px;
-  height: 400px;
-  top: -120px;
-  left: -100px;
-  background: radial-gradient(circle, oklch(0.93 0.07 75 / 0.3), transparent 70%);
-  filter: blur(50px);
-  animation: glow-pulse-tl 20s ease-in-out infinite;
-}
-
-.dark .bg-glow-tl {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, oklch(0.28 0.08 30 / 0.2), transparent 70%);
-  filter: blur(80px);
-}
-
-/* Bottom-right corner warm glow */
-.bg-glow-br {
-  width: 350px;
-  height: 350px;
-  bottom: -100px;
-  right: -80px;
-  background: radial-gradient(circle, oklch(0.91 0.06 80 / 0.25), transparent 70%);
-  filter: blur(55px);
-  animation: glow-pulse-br 22s ease-in-out infinite;
-}
-
-.dark .bg-glow-br {
-  width: 450px;
-  height: 450px;
-  background: radial-gradient(circle, oklch(0.25 0.07 45 / 0.15), transparent 70%);
-  filter: blur(85px);
-}
-
-/* Center ambient orb */
+/* ── Center glow: warm ambient light ── */
 .bg-glow-center {
-  width: 500px;
-  height: 500px;
-  top: 35%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, oklch(0.94 0.04 85 / 0.2), transparent 65%);
-  filter: blur(60px);
-  animation: glow-pulse-center 35s ease-in-out infinite;
+  width: 600px;
+  height: 600px;
+  top: 25%;
+  left: 35%;
+  background: radial-gradient(circle, rgba(255, 170, 120, 0.35), transparent 55%);
+  filter: blur(40px);
+  animation: glow-breathe 12s ease-in-out infinite;
 }
 
 .dark .bg-glow-center {
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, oklch(0.22 0.06 35 / 0.12), transparent 65%);
-  filter: blur(90px);
+  width: 800px;
+  height: 800px;
+  top: 20%;
+  left: 30%;
+  background: radial-gradient(circle, rgba(255, 130, 70, 0.25), rgba(59, 130, 246, 0.08) 50%, transparent 65%);
+  filter: blur(50px);
+  animation: glow-breathe 10s ease-in-out infinite;
 }
 
-@keyframes glow-pulse-tl {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
-  50%      { transform: translate(20px, 15px) scale(1.1); opacity: 1; }
+/* ── Secondary accent glow ── */
+.bg-glow-accent {
+  width: 450px;
+  height: 450px;
+  top: 55%;
+  right: -3%;
+  background: radial-gradient(circle, rgba(255, 200, 160, 0.30), transparent 55%);
+  filter: blur(35px);
+  animation: glow-drift 14s ease-in-out infinite;
 }
 
-@keyframes glow-pulse-br {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
-  50%      { transform: translate(-15px, -20px) scale(1.08); opacity: 1; }
+.dark .bg-glow-accent {
+  width: 550px;
+  height: 550px;
+  top: 50%;
+  right: -5%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.25), rgba(255, 140, 80, 0.10) 50%, transparent 65%);
+  filter: blur(45px);
+  animation: glow-drift 12s ease-in-out infinite;
 }
 
-@keyframes glow-pulse-center {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
-  33%      { transform: translate(calc(-50% + 40px), calc(-50% - 30px)) scale(1.05); opacity: 0.8; }
-  66%      { transform: translate(calc(-50% - 30px), calc(-50% + 25px)) scale(0.95); opacity: 0.7; }
+@keyframes glow-breathe {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  30%      { transform: translate(50px, -30px) scale(1.15); opacity: 1; }
+  60%      { transform: translate(-30px, 40px) scale(0.9); opacity: 0.75; }
 }
 
-/* ── Subtle Grain Texture Overlay ── */
+@keyframes glow-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  35%      { transform: translate(-60px, -40px) scale(1.12); opacity: 1; }
+  65%      { transform: translate(35px, 30px) scale(0.88); opacity: 0.7; }
+}
+
+/* ══════════════════════════════════════════════
+   🌫️ Grain Texture Overlay
+   ══════════════════════════════════════════════ */
+
 .bg-grain {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
   mix-blend-mode: overlay;
-  transition: opacity 0.8s ease;
 }
 
 .dark .bg-grain {
-  opacity: 0.04;
+  opacity: 0.05;
   mix-blend-mode: soft-light;
 }
 
-/* ── Ensure content stays above background ── */
+/* ══════════════════════════════════════════════
+   📐 Layout & z-index
+   ══════════════════════════════════════════════ */
+
 .premium-bg > *:not(.bg-glow):not(.bg-grain):not(.notif-bell) {
   position: relative;
   z-index: 1;
 }
 
-/* ── Smooth theme transition for background layers ── */
-.premium-bg,
-.premium-bg::before,
-.premium-bg::after,
-.bg-glow,
-.bg-grain {
-  transition: background 0.6s ease, opacity 0.6s ease, filter 0.6s ease;
+/* ══════════════════════════════════════════════
+   🔄 Theme Transition
+   ══════════════════════════════════════════════ */
+
+.premium-bg {
+  transition: background-color 0.6s ease;
 }
 
-/* ── Respect reduced motion ── */
+.premium-bg::before,
+.premium-bg::after,
+.bg-glow {
+  transition: background 0.6s ease, opacity 0.6s ease;
+}
+
+/* ══════════════════════════════════════════════
+   ♿ Accessibility
+   ══════════════════════════════════════════════ */
+
 @media (prefers-reduced-motion: reduce) {
+  .premium-bg,
   .premium-bg::before,
   .premium-bg::after,
-  .bg-glow-tl,
-  .bg-glow-br,
-  .bg-glow-center {
+  .bg-glow-center,
+  .bg-glow-accent {
     animation: none !important;
   }
 }
 
-/* ── Mobile optimization ── */
+/* ══════════════════════════════════════════════
+   📱 Mobile Optimization
+   ══════════════════════════════════════════════ */
+
 @media (max-width: 640px) {
-  .premium-bg::before {
-    width: 350px;
-    height: 350px;
-  }
-  .premium-bg::after {
-    width: 300px;
-    height: 300px;
-  }
-  .dark .premium-bg::before {
-    width: 400px;
-    height: 400px;
-  }
-  .dark .premium-bg::after {
-    width: 350px;
-    height: 350px;
-  }
-  .bg-glow-tl,
-  .bg-glow-br {
-    width: 250px;
-    height: 250px;
-  }
-  .bg-glow-center {
-    width: 300px;
-    height: 300px;
-  }
+  .premium-bg::before { width: 320px; height: 320px; filter: blur(50px); }
+  .premium-bg::after  { width: 280px; height: 280px; filter: blur(55px); }
+  .dark .premium-bg::before { width: 380px; height: 380px; filter: blur(65px); }
+  .dark .premium-bg::after  { width: 320px; height: 320px; filter: blur(70px); }
+  .bg-glow-center { width: 350px; height: 350px; }
+  .bg-glow-accent { width: 250px; height: 250px; }
+  .dark .bg-glow-center { width: 450px; height: 450px; }
+  .dark .bg-glow-accent { width: 300px; height: 300px; }
 }

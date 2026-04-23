@@ -200,9 +200,8 @@ export default function HomePage() {
     return (
       <div dir={dir} className="min-h-screen flex flex-col premium-bg">
         {/* Premium Background Layers */}
-        <div className="bg-glow bg-glow-tl" />
-        <div className="bg-glow bg-glow-br" />
         <div className="bg-glow bg-glow-center" />
+        <div className="bg-glow bg-glow-accent" />
         <div className="bg-grain" />
         <Header isLoggedIn={false} onLogout={handleLogout} />
         <main className="flex-1 flex items-center justify-center">
@@ -223,9 +222,8 @@ export default function HomePage() {
     return (
       <div dir={dir} className="min-h-screen flex flex-col premium-bg">
         {/* Premium Background Layers */}
-        <div className="bg-glow bg-glow-tl" />
-        <div className="bg-glow bg-glow-br" />
         <div className="bg-glow bg-glow-center" />
+        <div className="bg-glow bg-glow-accent" />
         <div className="bg-grain" />
         <Header isLoggedIn={false} onLogout={handleLogout} />
         <main className="flex-1 flex items-center justify-center py-8 px-4">
@@ -246,9 +244,8 @@ export default function HomePage() {
   return (
     <div dir={dir} className="min-h-screen flex flex-col premium-bg">
       {/* Premium Background Layers */}
-      <div className="bg-glow bg-glow-tl" />
-      <div className="bg-glow bg-glow-br" />
       <div className="bg-glow bg-glow-center" />
+      <div className="bg-glow bg-glow-accent" />
       <div className="bg-grain" />
       <Header isLoggedIn={true} isAdmin={user.role === 'admin'} onLogout={handleLogout} />
 
