@@ -11,11 +11,14 @@ interface SystemStatusProps {
 }
 
 export default function SystemStatus({ stats, lang, t }: SystemStatusProps) {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [pushCount, setPushCount] = useState<number | null>(null);
 
+  // Initialize time on client side only to avoid SSR hydration mismatch
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const updateTime = () => setCurrentTime(new Date());
+    updateTime();
+    const timer = setInterval(updateTime, 60000);
     return () => clearInterval(timer);
   }, []);
 
@@ -26,11 +29,12 @@ export default function SystemStatus({ stats, lang, t }: SystemStatusProps) {
       .catch(() => {});
   }, []);
 
-  const timeStr = currentTime.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Africa/Cairo',
-  });
+  const timeStr = currentTime
+    ? currentTime.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '--:--';
 
   const items = [
     {
@@ -59,7 +63,7 @@ export default function SystemStatus({ stats, lang, t }: SystemStatusProps) {
     {
       icon: <Clock className="size-4 text-purple-600" />,
       label: t('admin.lastUpdated'),
-      value: timeStr,
+      value: timeStr !== '--:--' ? timeStr : <Loader2 className="size-3.5 animate-spin" />,
     },
     {
       icon: <Server className="size-4 text-emerald-600" />,
