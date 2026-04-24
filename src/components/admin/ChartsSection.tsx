@@ -89,11 +89,11 @@ export default function ChartsSection({ stats, lang, t, parseCN }: ChartsSection
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
-                  outerRadius={85}
+                  outerRadius={75}
                   paddingAngle={3}
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
+                  labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                 >
                   {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
