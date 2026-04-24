@@ -193,7 +193,7 @@ export function StudentForm({ userId, existingData, onDataChange }: StudentFormP
   };
 
   const stepLabels = lang === 'ar'
-    ? ['الاسم', 'الصف', 'التواصل', 'الجنس']
+    ? ['الاسم', 'الصف', 'التواصل', 'النوع']
     : ['Name', 'Grade', 'Contact', 'Gender'];
 
   return (

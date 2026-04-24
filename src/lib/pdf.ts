@@ -64,7 +64,7 @@ export async function generateStudentPDF(student: StudentRecord, lang: string): 
   const fields: [string, string][] = [
     [isArabic ? 'الاسم الكامل' : 'Full Name', student.fullName],
     [isArabic ? 'الصف والفصل' : 'Grade & Section', student.className],
-    [isArabic ? 'الجنس' : 'Gender', student.gender === 'male' ? (isArabic ? 'ذكر' : 'Male') : (isArabic ? 'أنثى' : 'Female')],
+    [isArabic ? 'النوع' : 'Gender', student.gender === 'male' ? (isArabic ? 'ذكر' : 'Male') : (isArabic ? 'أنثى' : 'Female')],
     [isArabic ? 'هاتف ولي الأمر' : 'Parent Phone', student.parentPhone],
     [isArabic ? 'بريد ولي الأمر' : 'Parent Email', student.parentEmail],
     [isArabic ? 'رقم الواتساب' : 'WhatsApp', student.whatsapp || '--'],
@@ -206,7 +206,7 @@ export async function generateBulkStudentPDF(students: StudentRecord[], lang: st
     // Fields
     const fields: [string, string][] = [
       [isArabic ? 'الصف' : 'Grade', student.className],
-      [isArabic ? 'الجنس' : 'Gender', student.gender === 'male' ? (isArabic ? 'ذكر' : 'Male') : (isArabic ? 'أنثى' : 'Female')],
+      [isArabic ? 'النوع' : 'Gender', student.gender === 'male' ? (isArabic ? 'ذكر' : 'Male') : (isArabic ? 'أنثى' : 'Female')],
       [isArabic ? 'الهاتف' : 'Phone', student.parentPhone],
       [isArabic ? 'البريد' : 'Email', student.parentEmail],
       [isArabic ? 'الواتساب' : 'WhatsApp', student.whatsapp || '--'],

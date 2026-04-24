@@ -388,7 +388,7 @@ export async function exportSingleStudentPdf(
   const fields: [string, string][] = [
     [isArabic ? 'اسم الطالب' : 'Student Name', student.fullName],
     [isArabic ? 'الصف' : 'Class', className],
-    [isArabic ? 'الجنس' : 'Gender', getGenderLabel(student.gender, lang)],
+    [isArabic ? 'النوع' : 'Gender', getGenderLabel(student.gender, lang)],
     [isArabic ? 'هاتف ولي الأمر' : 'Parent Phone', student.parentPhone],
     [isArabic ? 'بريد ولي الأمر' : 'Parent Email', student.parentEmail],
     [isArabic ? 'رقم الواتساب' : 'WhatsApp', student.whatsapp || '--'],
