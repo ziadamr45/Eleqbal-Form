@@ -2,15 +2,15 @@
  * Arabic PDF utilities — font loading + text shaping for jsPDF
  */
 
-// Cache loaded fonts to avoid re-fetching
-let fontCache: Record<string, string> = {};
-let fontsRegistered = false;
+// Cache base64 font data so we don't re-fetch from server
+let fontDataCache: Record<string, string> = {};
+let fontLoadPromise: Promise<Record<string, string>> | null = null;
 
 /**
  * Fetch a TTF font from /fonts/ and return base64 string
  */
 async function fetchFontAsBase64(filename: string): Promise<string> {
-  if (fontCache[filename]) return fontCache[filename];
+  if (fontDataCache[filename]) return fontDataCache[filename];
 
   const res = await fetch(`/fonts/${filename}`);
   if (!res.ok) throw new Error(`Failed to load font: ${filename}`);
@@ -28,29 +28,46 @@ async function fetchFontAsBase64(filename: string): Promise<string> {
   }
 
   const base64 = btoa(binary);
-  fontCache[filename] = base64;
+  fontDataCache[filename] = base64;
   return base64;
 }
 
 /**
- * Load and register Arabic fonts (Amiri) in jsPDF.
- * Call this once before generating any Arabic PDF.
+ * Load font files from server (cached after first load).
+ * Returns a promise that resolves with the base64 data for both fonts.
  */
-export async function registerArabicFonts(doc: { addFileToVFS: (n: string, d: string) => void; addFont: (n: string, family: string, style: string) => void }): Promise<void> {
-  if (fontsRegistered) return;
+function ensureFontDataLoaded(): Promise<Record<string, string>> {
+  if (fontLoadPromise) return fontLoadPromise;
 
-  const [regularB64, boldB64] = await Promise.all([
+  fontLoadPromise = Promise.all([
     fetchFontAsBase64('Amiri-Regular.ttf'),
     fetchFontAsBase64('Amiri-Bold.ttf'),
-  ]);
+  ]).then(([regular, bold]) => {
+    fontDataCache['Amiri-Regular.ttf'] = regular;
+    fontDataCache['Amiri-Bold.ttf'] = bold;
+    return fontDataCache;
+  });
 
-  doc.addFileToVFS('Amiri-Regular.ttf', regularB64);
-  doc.addFileToVFS('Amiri-Bold.ttf', boldB64);
+  return fontLoadPromise;
+}
+
+/**
+ * Load and register Arabic fonts (Amiri) in jsPDF.
+ * IMPORTANT: Must be called for EVERY new jsPDF instance because each
+ * doc has its own Virtual File System (VFS).
+ * Font binary data is cached to avoid re-fetching from the server.
+ */
+export async function registerArabicFonts(doc: {
+  addFileToVFS: (n: string, d: string) => void;
+  addFont: (n: string, family: string, style: string) => void;
+}): Promise<void> {
+  const fonts = await ensureFontDataLoaded();
+
+  doc.addFileToVFS('Amiri-Regular.ttf', fonts['Amiri-Regular.ttf']);
+  doc.addFileToVFS('Amiri-Bold.ttf', fonts['Amiri-Bold.ttf']);
 
   doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
   doc.addFont('Amiri-Bold.ttf', 'Amiri', 'bold');
-
-  fontsRegistered = true;
 }
 
 /**
