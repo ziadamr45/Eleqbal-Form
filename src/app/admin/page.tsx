@@ -516,12 +516,6 @@ export default function AdminDashboard() {
                       ))}
                     </div>
                   )}
-                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3">
-                    <p className="text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
-                      <TriangleAlert className="size-4 shrink-0 mt-0.5" />
-                      <span>{lang === 'ar' ? 'لإضافة مدير جديد، أضف بريده الإلكتروني في متغير البيئة ADMIN_EMAILS في لوحة تحكم Vercel ثم سجل دخول بالحساب الجديد' : 'To add a new admin, add their email to the ADMIN_EMAILS env variable in Vercel dashboard, then log in with the new account'}</span>
-                    </p>
-                  </div>
                 </CardContent>
               </Card>
             </div>
