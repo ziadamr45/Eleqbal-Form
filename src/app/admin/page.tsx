@@ -424,8 +424,8 @@ export default function AdminDashboard() {
           </nav>
 
           <div className="p-3 border-t">
-            <button onClick={() => router.push('/')} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-              <School className="size-4" /> {lang === 'ar' ? 'الموقع الرئيسي' : 'Main Site'}
+            <button onClick={() => window.open('/', '_blank')} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+              <School className="size-4" /> {lang === 'ar' ? 'المعاينة' : 'Preview'}
             </button>
             <button onClick={() => setShowLogoutConfirm(true)} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors mt-1">
               <LogOut className="size-4" /> {lang === 'ar' ? 'خروج' : 'Logout'}

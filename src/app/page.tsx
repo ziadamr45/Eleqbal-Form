@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, GraduationCap, User, Pencil, Trash2, Plus, AlertTriangle, Bell, X, Check, Megaphone, Hand } from 'lucide-react';
+import { Loader2, GraduationCap, User, Pencil, Trash2, Plus, AlertTriangle, Bell, X, Check, Megaphone, Hand, Eye, ArrowLeft } from 'lucide-react';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { LoginForm } from '@/components/login-form';
@@ -154,10 +154,6 @@ export default function HomePage() {
 
   useEffect(() => {
     if (user?.role === 'student') registerPush();
-    // Redirect admin to admin dashboard
-    if (user?.role === 'admin') {
-      window.location.href = '/admin';
-    }
   }, [user, registerPush]);
 
   const urlBase64ToUint8Array = (base64String: string) => {
@@ -386,9 +382,33 @@ export default function HomePage() {
             </motion.div>
           )}
 
-          {/* Student Data Card */}
+          {/* Admin preview notice */}
+          {user.role === 'admin' && (
+            <motion.div {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
+              <Card className="shadow-lg border-emerald-200 dark:border-emerald-800">
+                <CardContent className="p-6">
+                  <div className="flex flex-col items-center text-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                      <Eye className="size-7 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="space-y-1">
+                      <h2 className="text-lg font-semibold">{lang === 'ar' ? 'وضع المعاينة' : 'Preview Mode'}</h2>
+                      <p className="text-sm text-muted-foreground max-w-sm">{lang === 'ar' ? 'هذه هي الصفحة التي يراها الطلاب عند تسجيل الدخول' : 'This is what students see when they log in'}</p>
+                    </div>
+                    <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                      <Button onClick={() => window.location.href = '/admin'} className="mt-2 gap-2 bg-emerald-600 text-white hover:bg-emerald-700 h-11 px-8 shadow-lg shadow-emerald-600/20">
+                        <ArrowLeft className="size-4" /> {lang === 'ar' ? 'الرجوع للوحة التحكم' : 'Back to Dashboard'}
+                      </Button>
+                    </motion.div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Student Data Card - Students only */}
           <AnimatePresence mode="wait">
-            {studentData && !editing && (
+            {user.role === 'student' && studentData && !editing && (
               <motion.div
                 key="view"
                 {...fadeUp}
@@ -459,7 +479,7 @@ export default function HomePage() {
               </motion.div>
             )}
 
-            {!studentData && !editing && (
+            {user.role === 'student' && !studentData && !editing && (
               <motion.div {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
                 <Card className="shadow-lg">
                   <CardContent className="p-6">
@@ -486,7 +506,7 @@ export default function HomePage() {
               </motion.div>
             )}
 
-            {!studentData && editing && (
+            {user.role === 'student' && !studentData && editing && (
               <motion.div key="create" {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
                 <StudentForm userId={user.id} existingData={null} onDataChange={handleDataChange} />
               </motion.div>
