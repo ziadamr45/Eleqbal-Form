@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       femaleCount,
       studentsByClass,
       recentStudents,
+      adminUsers,
     ] = await Promise.all([
       db.studentData.count(),
       db.user.count({ where: { role: 'student' } }),
@@ -29,13 +30,12 @@ export async function GET(request: NextRequest) {
         take: 5,
         select: { fullName: true, className: true, createdAt: true },
       }),
+      db.user.findMany({
+        where: { role: 'admin' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, email: true, name: true, createdAt: true },
+      }),
     ])
-
-    // Get admin emails from env
-    const adminEmails = (process.env.ADMIN_EMAILS || '')
-      .split(',')
-      .map(e => e.trim())
-      .filter(Boolean);
 
     return NextResponse.json({
       success: true,
@@ -44,12 +44,20 @@ export async function GET(request: NextRequest) {
         totalUsers,
         maleCount,
         femaleCount,
-        studentsByClass: studentsByClass.map(c => ({
-          className: c.className,
-          count: c._count.id,
-        })),
+        // Only include classes that have at least 1 student
+        studentsByClass: studentsByClass
+          .filter(c => c._count.id > 0)
+          .map(c => ({
+            className: c.className,
+            count: c._count.id,
+          })),
         recentStudents,
-        adminEmails,
+        adminUsers: adminUsers.map(u => ({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          createdAt: u.createdAt,
+        })),
       },
     })
   } catch (error) {

@@ -151,3 +151,27 @@ Stage Summary:
 - Push notification button now properly triggers browser's native permission dialog
 - Browser permission dialog auto-appears on first visit (after 4s delay)
 - Pie chart legend stacks vertically on mobile, horizontally on desktop
+
+---
+Task ID: 7
+Agent: Main Orchestrator
+Task: Fix admin list showing from env var + fix bar chart labels
+
+Work Log:
+- Changed admin list in control panel from reading ADMIN_EMAILS env var to reading actual admin users from database (role='admin')
+- Updated /api/admin/stats to include `adminUsers` query from db.user where role='admin'
+- Admin list now shows: name, email, and join date for each admin
+- Updated admin list UI with count badge, better card layout, and improved help text
+- Combined fetchAdminUsers into fetchStats (same API call) to reduce network requests
+- Fixed bar chart: changed from vertical to horizontal layout (layout="vertical") for better Arabic label readability
+- Shortened bar chart X-axis labels to "grade/section" format (e.g., "5/2") instead of full names
+- Tooltip shows full class name on hover
+- Dynamic chart height based on number of classes
+- Filtered out classes with 0 students from both API response and chart
+- Sorted bar chart by grade then section numerically
+- All lint checks pass
+
+Stage Summary:
+- Admin list now reads from database - shows all actual admin accounts automatically
+- Bar chart uses horizontal layout with short labels, full names in tooltips
+- No more empty/zero-count columns in the chart

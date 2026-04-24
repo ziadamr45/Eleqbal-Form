@@ -99,9 +99,8 @@ export default function AdminDashboard() {
   // Logout confirmation
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // Control tab - admin emails
-  const [adminEmails, setAdminEmails] = useState<string[]>([]);
-  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  // Control tab - admin users
+  const [adminUsers, setAdminUsers] = useState<{ id: string; email: string; name: string | null; createdAt: string }[]>([]);
 
   // Mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -117,11 +116,15 @@ export default function AdminDashboard() {
     } catch { router.push('/'); }
   }, [router]);
 
-  // ── Fetch Stats ──
+  // ── Fetch Stats (includes admin users) ──
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/stats');
-      if (res.ok) setStats((await res.json()).stats);
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data.stats);
+        setAdminUsers(data.stats?.adminUsers || []);
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -148,19 +151,6 @@ export default function AdminDashboard() {
     finally { setLoading(false); }
   }, [search, gradeFilter, sectionFilter, genderFilter, sort, page]);
 
-  // ── Fetch Admin Emails ──
-  const fetchAdminEmails = useCallback(async () => {
-    setLoadingAdmins(true);
-    try {
-      const res = await fetch('/api/admin/stats');
-      if (res.ok) {
-        const data = await res.json();
-        setAdminEmails(data.adminEmails || []);
-      }
-    } catch { /* ignore */ }
-    finally { setLoadingAdmins(false); }
-  }, []);
-
   // ── Fetch Sent Notifications ──
   const fetchSentNotifs = useCallback(async () => {
     try {
@@ -171,8 +161,8 @@ export default function AdminDashboard() {
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
   useEffect(() => {
-    if (authed) { fetchStats(); fetchStudents(); fetchSentNotifs(); fetchAdminEmails(); }
-  }, [authed, fetchStats, fetchStudents, fetchSentNotifs, fetchAdminEmails]);
+    if (authed) { fetchStats(); fetchStudents(); fetchSentNotifs(); }
+  }, [authed, fetchStats, fetchStudents, fetchSentNotifs]);
   useEffect(() => { setPage(1); }, [search, gradeFilter, sectionFilter, genderFilter, sort]);
 
   // ── Helpers ──
@@ -495,24 +485,33 @@ export default function AdminDashboard() {
                   <CardTitle className="text-base flex items-center gap-2">
                     <UserCog className="size-4 text-emerald-600" />
                     {lang === 'ar' ? 'المديرين' : 'Admins'}
+                    {adminUsers.length > 0 && (
+                      <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">{adminUsers.length}</span>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {loadingAdmins ? (
+                  {!stats ? (
                     <div className="flex items-center justify-center py-6"><Loader2 className="size-5 animate-spin text-emerald-600" /></div>
-                  ) : adminEmails.length === 0 ? (
+                  ) : adminUsers.length === 0 ? (
                     <div className="flex flex-col items-center py-6 text-muted-foreground">
                       <KeyRound className="size-8 opacity-20 mb-2" />
                       <p className="text-sm">{lang === 'ar' ? 'لا يوجد مديرين' : 'No admins'}</p>
                     </div>
                   ) : (
                     <div className="divide-y rounded-lg border">
-                      {adminEmails.map((email) => (
-                        <div key={email} className="flex items-center gap-2.5 px-3 py-2.5">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 shrink-0">
-                            <Shield className="size-3.5 text-emerald-600" />
+                      {adminUsers.map((admin) => (
+                        <div key={admin.id} className="flex items-center gap-3 px-3 py-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 shrink-0">
+                            <Shield className="size-4 text-emerald-600" />
                           </div>
-                          <span className="text-sm font-mono truncate" dir="ltr">{email}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{admin.name || admin.email}</p>
+                            <p className="text-xs text-muted-foreground font-mono truncate" dir="ltr">{admin.email}</p>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {new Date(admin.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -520,7 +519,7 @@ export default function AdminDashboard() {
                   <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3">
                     <p className="text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
                       <TriangleAlert className="size-4 shrink-0 mt-0.5" />
-                      <span>{lang === 'ar' ? 'لإضافة أو إزالة مدير، قم بتعديل متغير البيئة ADMIN_EMAILS في لوحة تحكم Vercel (فصل البريد الإلكتروني بفاصلة)' : 'To add or remove an admin, edit the ADMIN_EMAILS environment variable in your Vercel dashboard (comma-separated emails)'}</span>
+                      <span>{lang === 'ar' ? 'لإضافة مدير جديد، أضف بريده الإلكتروني في متغير البيئة ADMIN_EMAILS في لوحة تحكم Vercel ثم سجل دخول بالحساب الجديد' : 'To add a new admin, add their email to the ADMIN_EMAILS env variable in Vercel dashboard, then log in with the new account'}</span>
                     </p>
                   </div>
                 </CardContent>
