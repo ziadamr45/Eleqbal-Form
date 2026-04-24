@@ -81,41 +81,49 @@ export default function ChartsSection({ stats, lang, t, parseCN }: ChartsSection
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-64 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={3}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
-                    fontSize: '12px',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center gap-4 mt-2">
-            {pieData.map(item => (
-              <div key={item.name} className="flex items-center gap-1.5 text-xs">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span>{item.name}: {item.value}</span>
-              </div>
-            ))}
+          <div className="flex items-center gap-6">
+            <div className="h-52 w-52 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                    label={false}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '12px',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col gap-3">
+              {pieData.map(item => {
+                const total = pieData.reduce((s, d) => s + d.value, 0);
+                const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : 0;
+                return (
+                  <div key={item.name} className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: item.color }} />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">{item.name}</span>
+                      <span className="text-xs text-muted-foreground">{item.value} ({pct}%)</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>

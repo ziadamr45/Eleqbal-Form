@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, GraduationCap, User, Pencil, Trash2, Plus, AlertTriangle, Bell, X, Check, Megaphone, Hand, Eye, ArrowLeft } from 'lucide-react';
 import { Header } from '@/components/header';
@@ -42,6 +44,14 @@ const stagger = {
 };
 
 export default function HomePage() {
+  return (
+    <Suspense>
+      <HomePageInner />
+    </Suspense>
+  );
+}
+
+function HomePageInner() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
@@ -49,6 +59,8 @@ export default function HomePage() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const { lang, dir } = useLanguage();
   const t = getT(lang);
+  const searchParams = useSearchParams();
+  const isPreview = searchParams.get('preview') === 'true';
 
   // Notifications
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -154,7 +166,11 @@ export default function HomePage() {
 
   useEffect(() => {
     if (user?.role === 'student') registerPush();
-  }, [user, registerPush]);
+    // Redirect admin to dashboard unless in preview mode
+    if (user?.role === 'admin' && !isPreview) {
+      window.location.href = '/admin';
+    }
+  }, [user, registerPush, isPreview]);
 
   const urlBase64ToUint8Array = (base64String: string) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -382,8 +398,8 @@ export default function HomePage() {
             </motion.div>
           )}
 
-          {/* Admin preview notice */}
-          {user.role === 'admin' && (
+          {/* Admin preview notice - only in intentional preview mode */}
+          {user.role === 'admin' && isPreview && (
             <motion.div {...fadeUp} className="w-full max-w-2xl mx-auto px-4">
               <Card className="shadow-lg border-emerald-200 dark:border-emerald-800">
                 <CardContent className="p-6">

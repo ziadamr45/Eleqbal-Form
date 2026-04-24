@@ -419,12 +419,12 @@ export default function AdminDashboard() {
               <Bell className="size-4" /> {lang === 'ar' ? 'الإشعارات' : 'Notifications'}
             </button>
             <button onClick={() => { setActiveTab('control'); setSidebarOpen(false); }} className={`flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'control' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground hover:bg-muted'}`}>
-              <Settings className="size-4" /> {lang === 'ar' ? 'التحكم' : 'Control'}
+              <Settings className="size-4" /> {lang === 'ar' ? 'الإحصائيات' : 'Statistics'}
             </button>
           </nav>
 
           <div className="p-3 border-t">
-            <button onClick={() => window.open('/', '_blank')} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+            <button onClick={() => window.open('/?preview=true', '_blank')} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
               <School className="size-4" /> {lang === 'ar' ? 'المعاينة' : 'Preview'}
             </button>
             <button onClick={() => setShowLogoutConfirm(true)} className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors mt-1">
@@ -442,7 +442,7 @@ export default function AdminDashboard() {
           <h1 className="font-semibold text-lg">
             {activeTab === 'data' && (lang === 'ar' ? 'إدارة بيانات الطلاب' : 'Student Data Management')}
             {activeTab === 'notif' && (lang === 'ar' ? 'الإشعارات' : 'Notifications')}
-            {activeTab === 'control' && (lang === 'ar' ? 'التحكم' : 'Control')}
+            {activeTab === 'control' && (lang === 'ar' ? 'الإحصائيات' : 'Statistics')}
           </h1>
           <div className="ml-auto flex items-center gap-2">
             <AdminNotificationBell />
