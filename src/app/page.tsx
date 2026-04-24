@@ -154,6 +154,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (user?.role === 'student') registerPush();
+    // Redirect admin to admin dashboard
+    if (user?.role === 'admin') {
+      window.location.href = '/admin';
+    }
   }, [user, registerPush]);
 
   const urlBase64ToUint8Array = (base64String: string) => {
