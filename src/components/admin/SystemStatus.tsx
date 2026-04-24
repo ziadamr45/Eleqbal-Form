@@ -11,31 +11,35 @@ interface SystemStatusProps {
 }
 
 export default function SystemStatus({ stats, lang, t }: SystemStatusProps) {
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [currentTime, setCurrentTime] = useState<string | null>(null);
   const [pushCount, setPushCount] = useState<number | null>(null);
 
-  // Initialize time on client side only to avoid SSR hydration mismatch
   useEffect(() => {
-    const updateTime = () => setCurrentTime(new Date());
-    updateTime();
-    const timer = setInterval(updateTime, 60000);
-    return () => clearInterval(timer);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/time');
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setCurrentTime(data.time);
+        }
+      } catch { /* ignore */ }
+    };
+    load();
+    const timer = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/admin/push-stats')
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data) setPushCount(data.count); })
+      .then(data => { if (data && !cancelled) setPushCount(data.count); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
-  const timeStr = currentTime
-    ? currentTime.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Africa/Cairo',
-      })
-    : '--:--';
+  const timeStr = currentTime || '--:--';
 
   const items = [
     {

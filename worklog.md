@@ -175,3 +175,21 @@ Stage Summary:
 - Admin list now reads from database - shows all actual admin accounts automatically
 - Bar chart uses horizontal layout with short labels, full names in tooltips
 - No more empty/zero-count columns in the chart
+
+---
+Task ID: 8
+Agent: Main Orchestrator
+Task: Fix time still 1 hour ahead in admin dashboard
+
+Work Log:
+- Previous fix (timeZone: 'Africa/Cairo' on client-side toLocaleTimeString) was not reliable
+- Created new server-side API endpoint /api/time that returns current time formatted in Africa/Cairo timezone
+- Rewrote SystemStatus.tsx to fetch time from /api/time API instead of using client-side new Date()
+- Server-side Node.js has authoritative timezone database, eliminating browser DST issues
+- Verified API returns correct Cairo time (05:53 AM matched actual 05:53 AM EEST)
+- Fixed lint error: setState in effect body (wrapped in async callback with cancelled guard)
+
+Stage Summary:
+- Time in admin dashboard now comes from server API (/api/time) with Africa/Cairo timezone
+- No more reliance on browser's timezone database
+- Tested and confirmed correct against actual Egypt time
