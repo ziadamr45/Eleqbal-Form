@@ -33,6 +33,7 @@ export default function SystemStatus({ stats, lang, t }: SystemStatusProps) {
     ? currentTime.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', {
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Africa/Cairo',
       })
     : '--:--';
 

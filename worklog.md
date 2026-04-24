@@ -129,3 +129,25 @@ Stage Summary:
 - PDF download now works: dynamic imports prevent SSR-side module evaluation
 - Admin accounts are excluded from "إجمالي المستخدمين" count (confirmed in stats API)
 - All changes pushed to GitHub (origin/main)
+
+---
+Task ID: 6
+Agent: Main Orchestrator
+Task: Fix time 1hr ahead, push notification permission dialog, and pie chart visibility
+
+Work Log:
+- Fixed time being 1 hour ahead in SystemStatus.tsx: added `timeZone: 'Africa/Cairo'` to `toLocaleTimeString` options
+- Rewrote notification-prompt.tsx to properly trigger browser's native Notification.requestPermission():
+  - Separated permission request from push subscription flow
+  - Now requests browser notification permission FIRST, then tries push registration in background
+  - Auto-triggers browser permission dialog 4 seconds after page load (after showing toast at 2s)
+  - Toast "enable" button directly triggers the browser's native permission dialog
+  - If push registration fails, user still gets basic notification permission
+- Made pie chart layout responsive: flex-col on mobile, flex-row on desktop (sm:flex-row)
+- All lint checks pass with zero errors
+
+Stage Summary:
+- Time in SystemStatus now correctly shows Egypt time (Africa/Cairo timezone)
+- Push notification button now properly triggers browser's native permission dialog
+- Browser permission dialog auto-appears on first visit (after 4s delay)
+- Pie chart legend stacks vertically on mobile, horizontally on desktop
